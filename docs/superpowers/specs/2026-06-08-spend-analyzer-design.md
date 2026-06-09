@@ -140,24 +140,37 @@ The repo is public; data is not. A strict `.gitignore` (committed before the fir
 excludes: `.env*` (except `.env.example`), `*.sqlite3` / `data/`, `import/`, uploaded files,
 and any model files. Verified before any push.
 
-## 12. Deployment (mirrors GreekManage)
+## 12. Deployment — automated (Claude-driven, mirrors GreekManage)
 
-- `docker-compose.yml` (base) + `docker-compose.minipc.yml` (override: ports/volumes/build),
-  run via `docker compose -f docker-compose.yml -f docker-compose.minipc.yml up -d --build`.
-- `.env.minipc` template for config (password hash, model name, paths).
-- Build/deploy on the minipc; Mac is code + tests only.
+The user never deploys manually. Claude runs the deploy during sessions.
+
+- **Mechanism:** `scripts/deploy.sh` mirrors GreekManage's `deploy-dev.sh`:
+  1. commit + `git push origin main` (public repo — code only, never data/secrets)
+  2. `ssh minipc` → `cd /home/aman/spendanalyzer` → `git fetch && reset --hard && pull`
+  3. copy `.env.minipc` → `.env`
+  4. `docker compose -f docker-compose.yml -f docker-compose.minipc.yml up -d --build`
+  5. apply DB schema/migrations automatically (SQLite, on container start or a deploy step)
+- **SSH:** existing key-based alias `minipc` (192.168.0.100, user `aman`), already configured.
+- **First-time bootstrap (automatic, once):** clone repo to `/home/aman/spendanalyzer`,
+  generate `.env.minipc` (password hash + session secret), `ollama pull qwen2.5:7b-instruct`.
+- **Cadence:** auto-deploy **after each build phase once Mac tests pass** — a working minipc
+  build at every milestone, gated by tests so broken work isn't deployed.
+- **First public push** is confirmed with the user; subsequent pushes/deploys are automatic.
+- Mac is code + fast tests only; the live app + containers run solely on the minipc.
 
 ## 13. Git setup
 
-- `git init` (`main` branch), strict `.gitignore` in place **before** first commit.
+- `git init` (`main` branch), strict `.gitignore` in place **before** first commit (done).
 - Remote `origin` → `https://github.com/amankundlas/spendanalyzer.git`.
-- Push only after explicit confirmation (public repo).
+- First push to the public repo confirmed with the user; thereafter automatic via deploy.
 
 ## 14. Groundwork deliverables (before app build)
 
 - **`CLAUDE.md`** — project overview, architecture, the privacy + public-repo rules,
-  tech stack, dev workflow (tests on Mac, run only on minipc), Docker/deploy commands,
-  coding conventions, data-model summary.
+  tech stack, dev workflow (tests on Mac, run only on minipc), the autodeploy workflow
+  (deploy after each phase once tests pass), Docker/deploy commands, coding conventions,
+  data-model summary.
+- **`scripts/deploy.sh`** — automated push→pull→compose-up deploy (mirrors GreekManage).
 - **`.claude/settings.json`** (+ gitignored `settings.local.json`) — lightweight project settings.
 - **`docs/superpowers/specs/`** — this spec.
 - Directory scaffold: `backend/`, `frontend/`, `docker-compose*.yml`, `.env.example`,
