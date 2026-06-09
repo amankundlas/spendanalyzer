@@ -1,0 +1,49 @@
+# ─────────────────────────────────────────────────────────────
+# PUBLIC REPO — financial data, secrets, and DB must NEVER be committed
+# ─────────────────────────────────────────────────────────────
+
+# Secrets / env
+.env
+.env.*
+!.env.example
+
+# Database & app data
+*.sqlite3
+*.sqlite
+*.db
+data/
+
+# Uploaded / dropped statements (financial data)
+import/
+uploads/
+statements/
+*.pdf
+*.csv
+!**/fixtures/**/*.csv   # allow small synthetic test fixtures only
+
+# Local LLM model files
+models/
+*.gguf
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node / frontend
+node_modules/
+frontend/dist/
+.vite/
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+
+# Claude local-only settings
+.claude/settings.local.json
+.claude/settings.local.json.bak
