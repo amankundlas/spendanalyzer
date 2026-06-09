@@ -1023,6 +1023,11 @@ Each phase ends with Mac tests passing + an automatic deploy to the minipc.
   first; Ollama client (pull `qwen2.5:7b-instruct`, `keep_alive=0`) for unknowns and for
   `pdfplumber`-extracted PDF text → structured JSON (Pydantic-validated); PDF review-before-save
   queue; "learn as rule" on accept/correct.
+  - **Deploy hardening carried over from Phase-1 review (do here when LLM is wired):**
+    pin `ollama/ollama:latest` to a verified version tag (verify it exists on the minipc first);
+    add `proxy_read_timeout`/`proxy_send_timeout` (and `X-Forwarded-Proto`) to `nginx.conf` so
+    multi-second LLM parses don't hit the default 60s proxy timeout; optionally add
+    `env_file: [{path: .env, required: false}]` to the `llm` service for tunable symmetry.
 - **Phase 4 — Dashboard.** Overview (totals, top categories, MoM trend, budget health),
   Categories (donut/bar + drill-in), Trends (Tremor/Recharts), per-account vs all-accounts via sidebar.
 - **Phase 5 — Budgets.** Monthly per-category limits (recurring + per-month override);
