@@ -38,6 +38,9 @@ venv/
 node_modules/
 frontend/dist/
 .vite/
+*.tsbuildinfo
+vite.config.d.ts
+vite.config.js
 
 # Editor / OS
 .DS_Store
