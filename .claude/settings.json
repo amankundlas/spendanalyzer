@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd backend && pytest:*)",
+      "Bash(cd frontend && npm run build:*)",
+      "Bash(cd frontend && npm run typecheck:*)",
+      "Bash(cd frontend && npm run test:*)",
+      "Bash(docker compose -f:*)",
+      "Bash(git status:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
+    ]
+  }
+}
