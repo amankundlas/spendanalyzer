@@ -1,0 +1,6 @@
+# Override for minipc deployment — exposes only the frontend on the LAN.
+# Usage: docker compose -f docker-compose.yml -f docker-compose.minipc.yml up -d --build
+services:
+  frontend:
+    ports:
+      - "${FRONTEND_PORT:-8090}:80"
