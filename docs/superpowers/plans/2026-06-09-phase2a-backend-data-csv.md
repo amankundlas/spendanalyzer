@@ -71,14 +71,19 @@ from sqlmodel import Session, SQLModel, create_engine
 
 from app.config import get_settings
 
-# check_same_thread=False is safe here: FastAPI uses a per-request Session.
-_engine = create_engine(
-    f"sqlite:///{get_settings().database_path}",
-    connect_args={"check_same_thread": False},
-)
+# Engine is created lazily (not at import time) so tests can set DATABASE_PATH
+# before the first connection. check_same_thread=False is safe: FastAPI uses a
+# per-request Session.
+_engine = None
 
 
 def get_engine():
+    global _engine
+    if _engine is None:
+        _engine = create_engine(
+            f"sqlite:///{get_settings().database_path}",
+            connect_args={"check_same_thread": False},
+        )
     return _engine
 
 
@@ -86,11 +91,11 @@ def init_db() -> None:
     # Import models so they are registered on SQLModel.metadata before create_all.
     from app import models  # noqa: F401
 
-    SQLModel.metadata.create_all(_engine)
+    SQLModel.metadata.create_all(get_engine())
 
 
 def get_session() -> Iterator[Session]:
-    with Session(_engine) as session:
+    with Session(get_engine()) as session:
         yield session
 ```
 
@@ -129,8 +134,10 @@ app.include_router(transactions_router, prefix="/api")
 > ```
 > Later tasks replace each stub with the real implementation.
 
-- [ ] **Step 5: Write `backend/tests/conftest.py`** (in-memory DB, dependency override):
+- [ ] **Step 5: Write `backend/tests/conftest.py`** (temp file DB for the lifespan, in-memory DB for queries via dependency override):
 ```python
+import os
+import tempfile
 from collections.abc import Iterator
 
 import pytest
@@ -138,8 +145,20 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session, SQLModel, create_engine
 from sqlmodel.pool import StaticPool
 
-from app.db import get_session
-from app.main import app
+
+@pytest.fixture(autouse=True, scope="session")
+def _temp_db_path() -> Iterator[None]:
+    # The app lifespan calls init_db() against settings.database_path. Point that
+    # at a throwaway temp file so tests never touch a real DB. Each test's queries
+    # still go through the in-memory `session` override below.
+    fd, path = tempfile.mkstemp(suffix=".sqlite3")
+    os.close(fd)
+    os.environ["DATABASE_PATH"] = path
+    from app.config import get_settings
+
+    get_settings.cache_clear()
+    yield
+    os.unlink(path)
 
 
 @pytest.fixture(name="session")
@@ -156,31 +175,17 @@ def session_fixture() -> Iterator[Session]:
 
 @pytest.fixture(name="client")
 def client_fixture(session: Session) -> Iterator[TestClient]:
+    from app.db import get_session
+    from app.main import app
+
     def get_session_override() -> Iterator[Session]:
         yield session
 
     app.dependency_overrides[get_session] = get_session_override
-    # Do not run the real lifespan init_db (uses the file DB); the fixture owns schema.
     with TestClient(app) as client:
         yield client
     app.dependency_overrides.clear()
 ```
-> NOTE: `TestClient(app)` triggers the lifespan, which calls the real `init_db()` against the configured file DB path. To avoid touching a real file during tests, set `DATABASE_PATH` to a temp path in tests. Add a `backend/tests/conftest.py` top-level autouse fixture:
-> ```python
-> import os
-> import tempfile
->
-> @pytest.fixture(autouse=True, scope="session")
-> def _temp_db_path():
->     fd, path = tempfile.mkstemp(suffix=".sqlite3")
->     os.close(fd)
->     os.environ["DATABASE_PATH"] = path
->     from app.config import get_settings
->     get_settings.cache_clear()
->     yield
->     os.unlink(path)
-> ```
-> Place this fixture ABOVE the others in `conftest.py` (and add the `import os, tempfile` imports at top). This makes the lifespan `init_db()` write to a throwaway temp file while each test still uses the in-memory `session` override for its actual queries.
 
 - [ ] **Step 6: Smoke test** — `cd backend && . .venv/bin/activate && pytest -q tests/test_health.py`
 Expected: still PASS (health unaffected). This verifies the new lifespan + stub routers import cleanly.
