@@ -47,7 +47,10 @@ Watched-folder importer runs as a background task inside the api process (no ext
 ## Commands
 
 Mac (verification only):
-- Backend tests: `cd backend && pytest`
+- Backend venv MUST use Python 3.12 to match the prod Docker image (`python:3.12-slim`).
+  Create with Homebrew's 3.12: `cd backend && /opt/homebrew/opt/python@3.12/bin/python3.12 -m venv .venv && . .venv/bin/activate && pip install -r requirements-dev.txt`
+  (the system `python3` is 3.9, which lacks PEP 604 `X | None` and would not match prod).
+- Backend tests: `cd backend && . .venv/bin/activate && pytest`
 - Frontend build/types/tests: `cd frontend && npm run build && npm run typecheck && npm run test`
 - Compose validate: `docker compose -f docker-compose.yml -f docker-compose.minipc.yml config`
 
