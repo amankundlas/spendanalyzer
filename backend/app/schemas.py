@@ -24,3 +24,15 @@ class ParsedRow(BaseModel):
     description: str
     amount_cents: int
     direction: str  # "debit" | "credit"
+
+
+class ImportPreview(BaseModel):
+    rows: list[ParsedRow]
+    added_count: int
+    duplicate_count: int
+
+
+class ImportResult(BaseModel):
+    batch_id: int
+    added_count: int
+    duplicate_count: int
