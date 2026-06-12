@@ -28,6 +28,11 @@ def _temp_db_path() -> Iterator[None]:
 
 @pytest.fixture(name="session")
 def session_fixture() -> Iterator[Session]:
+    # Import models so their tables are registered on SQLModel.metadata BEFORE
+    # create_all — otherwise the in-memory DB has no tables. Centralized here so
+    # individual test files don't each need this import.
+    from app import models  # noqa: F401
+
     engine = create_engine(
         "sqlite://",
         connect_args={"check_same_thread": False},
