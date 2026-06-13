@@ -1023,6 +1023,14 @@ Each phase ends with Mac tests passing + an automatic deploy to the minipc.
   first; Ollama client (pull `qwen2.5:7b-instruct`, `keep_alive=0`) for unknowns and for
   `pdfplumber`-extracted PDF text → structured JSON (Pydantic-validated); PDF review-before-save
   queue; "learn as rule" on accept/correct.
+  - **DB MIGRATION REQUIRED (carried from Phase-2a review):** Phase 2a uses `SQLModel.metadata.create_all`
+    only, which creates missing tables but does NOT alter existing ones. Phase 3 adds `Transaction.category_id`
+    (+ the `category`/`category_rule` tables). On the already-deployed minipc DB, `create_all` will create
+    the new tables but will NOT add `category_id` to the existing `transaction` table — a real migration step
+    is required (e.g. an idempotent `ALTER TABLE transaction ADD COLUMN category_id ...` guarded by
+    `PRAGMA table_info`, or adopt Alembic). Without it, the deployed DB silently lacks the column.
+    Also note: `commit_import` has no IntegrityError handler for the `UNIQUE(account_id, dedupe_hash)`
+    constraint — fine for single-worker, revisit if a multi-worker setup is ever introduced.
   - **Deploy hardening carried over from Phase-1 review (do here when LLM is wired):**
     pin `ollama/ollama:latest` to a verified version tag (verify it exists on the minipc first);
     add `proxy_read_timeout`/`proxy_send_timeout` (and `X-Forwarded-Proto`) to `nginx.conf` so
