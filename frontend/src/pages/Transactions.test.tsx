@@ -18,6 +18,7 @@ beforeEach(() => {
       {
         id: 10, account_id: 1, date: "2026-01-15", description: "PAYROLL",
         merchant: "PAYROLL", amount: 1500, direction: "credit", import_batch_id: 1,
+        category_id: null, category_name: null,
       },
     ],
   });

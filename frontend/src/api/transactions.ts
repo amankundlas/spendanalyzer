@@ -9,6 +9,8 @@ export interface Transaction {
   amount: number;
   direction: string;
   import_batch_id: number | null;
+  category_id: number | null;
+  category_name: string | null;
 }
 
 export interface TransactionPage {
@@ -21,6 +23,8 @@ export interface TxnFilters {
   search?: string;
   start?: string;
   end?: string;
+  category_id?: number;
+  uncategorized?: boolean;
   limit?: number;
   offset?: number;
 }
@@ -28,8 +32,15 @@ export interface TxnFilters {
 export const listTransactions = (filters: TxnFilters = {}) => {
   const params = new URLSearchParams();
   for (const [k, v] of Object.entries(filters)) {
-    if (v !== undefined && v !== "") params.append(k, String(v));
+    if (v !== undefined && v !== "" && v !== false) params.append(k, String(v));
   }
   const qs = params.toString();
   return api<TransactionPage>(`/transactions${qs ? `?${qs}` : ""}`);
 };
+
+export const recategorize = (id: number, categoryId: number | null) =>
+  api<Transaction>(`/transactions/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ category_id: categoryId }),
+  });
