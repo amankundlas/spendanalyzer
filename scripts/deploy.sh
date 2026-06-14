@@ -20,6 +20,12 @@ ssh "$REMOTE" "set -e
     exit 1
   fi
   docker compose -f docker-compose.yml -f docker-compose.minipc.yml up -d --build
+  # Ensure the local LLM model is present (idempotent: 'ollama pull' is a no-op
+  # if already downloaded). The first run fetches ~5GB; later deploys are instant.
+  MODEL=\$(grep -E '^OLLAMA_MODEL=' .env | tail -n1 | cut -d= -f2-)
+  MODEL=\${MODEL:-qwen2.5:7b-instruct}
+  echo \"Ensuring Ollama model present: \$MODEL\"
+  docker compose -f docker-compose.yml -f docker-compose.minipc.yml exec -T llm ollama pull \"\$MODEL\"
 "
 
 # Read the published port straight from the remote .env (grep, not source, so a
