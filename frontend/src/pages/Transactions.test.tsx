@@ -3,12 +3,14 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, test, vi } from "vitest";
 import * as accountsApi from "../api/accounts";
 import * as categoriesApi from "../api/categories";
+import * as categorizeApi from "../api/categorize";
 import * as rulesApi from "../api/rules";
 import * as txApi from "../api/transactions";
 import Transactions from "./Transactions";
 
 vi.mock("../api/accounts");
 vi.mock("../api/categories");
+vi.mock("../api/categorize");
 vi.mock("../api/rules");
 vi.mock("../api/transactions");
 
@@ -78,4 +80,13 @@ test("Apply rules triggers applyRules and reloads", async () => {
   await userEvent.click(screen.getByRole("button", { name: /apply rules/i }));
   await waitFor(() => expect(vi.mocked(rulesApi.applyRules)).toHaveBeenCalled());
   expect(await screen.findByText(/2 transaction/i)).toBeInTheDocument();
+});
+
+test("Categorize with AI calls the endpoint and shows the count", async () => {
+  vi.mocked(categorizeApi.aiCategorize).mockResolvedValue({ updated: 3 });
+  render(<Transactions />);
+  await screen.findByText("PAYROLL");
+  await userEvent.click(screen.getByRole("button", { name: /categorize with ai/i }));
+  await waitFor(() => expect(vi.mocked(categorizeApi.aiCategorize)).toHaveBeenCalled());
+  expect(await screen.findByText(/ai categorized 3/i)).toBeInTheDocument();
 });

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Account, listAccounts } from "../api/accounts";
 import { Category, listCategories } from "../api/categories";
+import { aiCategorize } from "../api/categorize";
 import { applyRules } from "../api/rules";
 import { Transaction, listTransactions, recategorize } from "../api/transactions";
 import Money from "../components/Money";
@@ -23,6 +24,7 @@ export default function Transactions() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [aiBusy, setAiBusy] = useState(false);
 
   const reload = () => setReloadKey((k) => k + 1);
 
@@ -88,6 +90,21 @@ export default function Transactions() {
       reload();
     } catch (e) {
       setError((e as Error).message);
+    }
+  };
+
+  const onAiCategorize = async () => {
+    setError(null);
+    setMessage(null);
+    setAiBusy(true);
+    try {
+      const { updated } = await aiCategorize();
+      setMessage(`AI categorized ${updated} transaction(s).`);
+      reload();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setAiBusy(false);
     }
   };
 
@@ -174,6 +191,13 @@ export default function Transactions() {
           onClick={onApplyRules}
         >
           Apply rules
+        </button>
+        <button
+          className="rounded border border-slate-300 px-3 py-1 hover:bg-slate-100 disabled:opacity-50"
+          onClick={onAiCategorize}
+          disabled={aiBusy}
+        >
+          {aiBusy ? "Categorizing…" : "Categorize with AI"}
         </button>
       </div>
 
