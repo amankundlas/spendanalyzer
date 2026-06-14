@@ -13,7 +13,9 @@ services:
     restart: unless-stopped
 
   llm:
-    image: ollama/ollama:0.30.7  # pinned (was :latest) — version verified on the minipc
+    # Pinned by digest (was :latest) — this is exactly the image already on the
+    # minipc (ollama 0.30.7), so deploys are reproducible and need no re-pull.
+    image: ollama/ollama@sha256:46399ef084d97b381955b5dc585c5d836dbe7ed3f79f170d1c04660fed511e3a
     environment:
       - OLLAMA_KEEP_ALIVE=${OLLAMA_KEEP_ALIVE:-0}
     volumes:
