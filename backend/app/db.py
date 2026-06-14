@@ -21,10 +21,15 @@ def get_engine():
 
 
 def init_db() -> None:
-    # Import models so they are registered on SQLModel.metadata before create_all.
     from app import models  # noqa: F401
+    from app.migrations import run_migrations
+    from app.seed import seed_categories
 
-    SQLModel.metadata.create_all(get_engine())
+    engine = get_engine()
+    SQLModel.metadata.create_all(engine)
+    run_migrations(engine)
+    with Session(engine) as session:
+        seed_categories(session)
 
 
 def get_session() -> Iterator[Session]:

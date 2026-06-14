@@ -39,4 +39,21 @@ class Transaction(SQLModel, table=True):
     import_batch_id: int | None = Field(
         default=None, foreign_key="importbatch.id", index=True
     )
+    category_id: int | None = Field(default=None, foreign_key="category.id", index=True)
     dedupe_hash: str
+
+
+class Category(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    name: str = Field(unique=True, index=True)
+    parent_id: int | None = Field(default=None, foreign_key="category.id")
+    color: str = "#64748b"
+    icon: str | None = None
+
+
+class CategoryRule(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    match_type: str  # "merchant_contains" | "regex"
+    pattern: str
+    category_id: int = Field(foreign_key="category.id", index=True)
+    priority: int = 100  # lower number = higher precedence
