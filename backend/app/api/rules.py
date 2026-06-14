@@ -3,7 +3,8 @@ from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
 from app.db import get_session
-from app.models import CategoryRule
+from app.models import CategoryRule, Transaction
+from app.services.categorize import match_category
 
 router = APIRouter()
 
@@ -59,3 +60,21 @@ def delete_rule(rule_id: int, session: Session = Depends(get_session)) -> None:
         raise HTTPException(status_code=404, detail="rule not found")
     session.delete(rule)
     session.commit()
+
+
+class ApplyResult(BaseModel):
+    updated: int
+
+
+@router.post("/rules/apply", response_model=ApplyResult)
+def apply_rules(session: Session = Depends(get_session)) -> ApplyResult:
+    rules = list(session.exec(select(CategoryRule)))
+    txns = list(session.exec(select(Transaction).where(Transaction.category_id.is_(None))))
+    updated = 0
+    for txn in txns:
+        cid = match_category(rules, txn.merchant, txn.description)
+        if cid is not None:
+            txn.category_id = cid
+            updated += 1
+    session.commit()
+    return ApplyResult(updated=updated)

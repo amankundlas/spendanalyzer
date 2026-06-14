@@ -36,7 +36,11 @@ def preview_import(
 def commit_import(
     session: Session, account_id: int, filename: str, text: str, mapping: ColumnMapping
 ) -> ImportResult:
+    from app.models import CategoryRule
+    from app.services.categorize import match_category
+
     parsed = parse_rows(text, mapping)
+    rules = list(session.exec(select(CategoryRule)))
     existing = _existing_hashes(session, account_id)
 
     batch = ImportBatch(account_id=account_id, source="csv", filename=filename)
@@ -65,6 +69,7 @@ def commit_import(
                 source="csv",
                 import_batch_id=batch_id,
                 dedupe_hash=h,
+                category_id=match_category(rules, normalized, row.description),
             )
         )
         added += 1

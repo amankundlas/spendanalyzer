@@ -48,3 +48,18 @@ def test_limit_is_capped(client: TestClient):
     acct = _seed(client)
     assert client.get(f"/api/transactions?account_id={acct}&limit=99999").status_code == 422
     assert client.get(f"/api/transactions?account_id={acct}&offset=-1").status_code == 422
+
+
+def test_recategorize_and_filter(client: TestClient):
+    acct = _seed(client)
+    cat = client.post("/api/categories", json={"name": "Dining"}).json()["id"]
+    txn_id = client.get(f"/api/transactions?account_id={acct}").json()["items"][0]["id"]
+
+    resp = client.patch(f"/api/transactions/{txn_id}", json={"category_id": cat})
+    assert resp.status_code == 200
+    assert resp.json()["category_name"] == "Dining"
+
+    body = client.get(f"/api/transactions?account_id={acct}&category_id={cat}").json()
+    assert body["total"] == 1
+    body = client.get(f"/api/transactions?account_id={acct}&uncategorized=true").json()
+    assert body["total"] == 2  # the other two seeded rows remain uncategorized
