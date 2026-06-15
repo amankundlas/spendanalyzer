@@ -6,6 +6,7 @@ import ComingSoon from "./pages/ComingSoon";
 import Import from "./pages/Import";
 import Overview from "./pages/Overview";
 import Transactions from "./pages/Transactions";
+import Trends from "./pages/Trends";
 
 export default function App() {
   return (
@@ -17,7 +18,7 @@ export default function App() {
         <Route path="/transactions" element={<Transactions />} />
         <Route path="/import" element={<Import />} />
         <Route path="/categories" element={<Categories />} />
-        <Route path="/trends" element={<ComingSoon title="Trends" />} />
+        <Route path="/trends" element={<Trends />} />
         <Route path="/budgets" element={<ComingSoon title="Budgets" />} />
         <Route path="/settings" element={<ComingSoon title="Settings" />} />
         <Route path="*" element={<Navigate to="/" replace />} />
