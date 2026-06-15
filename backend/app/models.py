@@ -57,3 +57,13 @@ class CategoryRule(SQLModel, table=True):
     pattern: str
     category_id: int = Field(foreign_key="category.id", index=True)
     priority: int = 100  # lower number = higher precedence
+
+
+class Budget(SQLModel, table=True):
+    # one budget row per (category, month); month="recurring" is the default monthly limit
+    __table_args__ = (UniqueConstraint("category_id", "month"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    category_id: int = Field(foreign_key="category.id", index=True)
+    month: str = "recurring"  # "recurring" or "YYYY-MM"
+    limit_cents: int
