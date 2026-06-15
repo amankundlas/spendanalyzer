@@ -105,7 +105,8 @@ export default function Trends() {
       </Card>
 
       <Card className="overflow-hidden">
-        <table className="w-full text-left text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[520px] text-left text-sm">
           <thead>
             <tr className="border-b border-line text-[11.5px] font-bold uppercase tracking-wide text-muted">
               <th scope="col" className="px-5 py-3">Month</th>
@@ -132,6 +133,7 @@ export default function Trends() {
             )}
           </tbody>
         </table>
+        </div>
       </Card>
     </main>
   );

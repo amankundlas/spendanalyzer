@@ -197,7 +197,8 @@ export default function Import() {
             <strong className="font-extrabold text-ink">{pdfRows.length}</strong> transaction(s) extracted by the local AI —
             review, then save. (Nothing is stored until you click Save.)
           </p>
-          <table className="w-full text-left text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[460px] text-left text-sm">
             <thead>
               <tr className="border-b border-line text-[11.5px] font-bold uppercase tracking-wide text-muted">
                 <th scope="col" className="py-2.5 pr-3">Date</th>
@@ -226,6 +227,7 @@ export default function Import() {
               )}
             </tbody>
           </table>
+          </div>
           {pdfRows.length > 0 && (
             <Button className="mt-4" onClick={doPdfSave}>
               Save import
@@ -269,7 +271,8 @@ export default function Import() {
             <strong className="font-extrabold text-ink">{preview.added_count} new</strong>, {preview.duplicate_count} duplicate(s)
             will be skipped.
           </p>
-          <table className="w-full text-left text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[460px] text-left text-sm">
             <thead>
               <tr className="border-b border-line text-[11.5px] font-bold uppercase tracking-wide text-muted">
                 <th scope="col" className="py-2.5 pr-3">Date</th>
@@ -287,6 +290,7 @@ export default function Import() {
               ))}
             </tbody>
           </table>
+          </div>
           <Button className="mt-4" onClick={doSave}>
             Save import
           </Button>
@@ -295,7 +299,8 @@ export default function Import() {
 
       <Card className="p-5">
         <CardHeader title="Recent imports" />
-        <table className="w-full text-left text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[520px] text-left text-sm">
           <thead>
             <tr className="border-b border-line text-[11.5px] font-bold uppercase tracking-wide text-muted">
               <th scope="col" className="py-2.5 pr-3">File</th>
@@ -332,6 +337,7 @@ export default function Import() {
             )}
           </tbody>
         </table>
+        </div>
       </Card>
     </main>
   );
