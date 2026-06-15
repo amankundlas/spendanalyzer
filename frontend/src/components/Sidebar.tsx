@@ -1,4 +1,5 @@
 import { NavLink } from "react-router-dom";
+import { authLogout } from "../api/auth";
 
 const NAV = [
   { label: "Overview", to: "/" },
@@ -29,6 +30,15 @@ export default function Sidebar() {
           </NavLink>
         ))}
       </nav>
+        <button
+          className="mt-6 rounded px-3 py-2 text-left text-sm text-slate-400 hover:bg-slate-700 hover:text-slate-100"
+          onClick={async () => {
+            await authLogout();
+            window.location.reload();
+          }}
+        >
+          Log out
+        </button>
     </aside>
   );
 }
