@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from app.api.accounts import router as accounts_router
 from app.api.categories import router as categories_router
 from app.api.categorize import router as categorize_router
+from app.api.dashboard import router as dashboard_router
 from app.api.health import router as health_router
 from app.api.imports import router as imports_router
 from app.api.rules import router as rules_router
@@ -24,6 +25,7 @@ app.include_router(health_router, prefix="/api")
 app.include_router(accounts_router, prefix="/api")
 app.include_router(categories_router, prefix="/api")
 app.include_router(categorize_router, prefix="/api")
+app.include_router(dashboard_router, prefix="/api")
 app.include_router(imports_router, prefix="/api")
 app.include_router(rules_router, prefix="/api")
 app.include_router(transactions_router, prefix="/api")
