@@ -53,5 +53,6 @@ def client_fixture(session: Session) -> Iterator[TestClient]:
 
     app.dependency_overrides[get_session] = get_session_override
     with TestClient(app) as client:
+        client.post("/api/auth/setup", json={"password": "testpass"})
         yield client
     app.dependency_overrides.pop(get_session, None)

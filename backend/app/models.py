@@ -67,3 +67,9 @@ class Budget(SQLModel, table=True):
     category_id: int = Field(foreign_key="category.id", index=True)
     month: str = "recurring"  # "recurring" or "YYYY-MM"
     limit_cents: int
+
+
+class AuthSetting(SQLModel, table=True):
+    # single-row table (id always 1) holding the app password hash
+    id: int | None = Field(default=None, primary_key=True)
+    password_hash: str | None = None
