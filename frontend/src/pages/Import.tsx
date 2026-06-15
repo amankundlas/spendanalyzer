@@ -4,10 +4,13 @@ import {
   ColumnMapping,
   ImportBatch,
   ImportPreview,
+  ParsedRow,
   analyzeCsv,
   commitImport,
   deleteBatch,
   listBatches,
+  pdfCommit,
+  pdfExtract,
   previewImport,
 } from "../api/imports";
 
@@ -24,6 +27,10 @@ export default function Import() {
   // Bumped after a successful save so the file <input> remounts and clears,
   // letting the user re-import the same filename.
   const [fileKey, setFileKey] = useState(0);
+  // PDF flow state
+  const [pdfRows, setPdfRows] = useState<ParsedRow[] | null>(null);
+  const [pdfName, setPdfName] = useState("statement.pdf");
+  const [pdfBusy, setPdfBusy] = useState(false);
 
   const refreshBatches = (id: number) =>
     listBatches(id).then(setBatches).catch(() => undefined);
@@ -46,11 +53,46 @@ export default function Import() {
     setError(null);
     setHeaders([]); // clear any prior file's mapping eagerly
     setMapping(null);
+    setPdfRows(null);
     if (!f) return;
+    const isPdf =
+      f.name.toLowerCase().endsWith(".pdf") || f.type === "application/pdf";
+    if (isPdf) {
+      setPdfName(f.name);
+      setPdfBusy(true);
+      try {
+        const { rows } = await pdfExtract(f);
+        setPdfRows(rows);
+      } catch (e) {
+        setError((e as Error).message);
+      } finally {
+        setPdfBusy(false);
+      }
+      return;
+    }
     try {
       const detected = await analyzeCsv(f);
       setHeaders(detected.headers);
       setMapping(detected.suggested);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+
+  const doPdfSave = async () => {
+    if (!pdfRows) return;
+    if (accountId === undefined) {
+      setError("Select an account first (create one on the Accounts page).");
+      return;
+    }
+    setError(null);
+    try {
+      const result = await pdfCommit(accountId, pdfName, pdfRows);
+      setMessage(`Imported ${result.added_count}, skipped ${result.duplicate_count} duplicate(s).`);
+      setPdfRows(null);
+      setFile(null);
+      setFileKey((k) => k + 1);
+      await refreshBatches(accountId);
     } catch (e) {
       setError((e as Error).message);
     }
@@ -126,11 +168,11 @@ export default function Import() {
           </select>
         </label>
         <label className="flex flex-col">
-          CSV file
+          Statement file (CSV or PDF)
           <input
             key={fileKey}
             type="file"
-            accept=".csv,text/csv"
+            accept=".csv,.pdf,text/csv,application/pdf"
             className="mt-1"
             onChange={(e) => onFile(e.target.files?.[0] ?? null)}
           />
@@ -139,6 +181,55 @@ export default function Import() {
 
       {error && <p className="mb-4 text-sm text-rose-600">{error}</p>}
       {message && <p className="mb-4 text-sm text-emerald-700">{message}</p>}
+      {pdfBusy && (
+        <p className="mb-4 text-sm text-slate-500">
+          Extracting transactions from the PDF with the local AI… (this can take a moment)
+        </p>
+      )}
+
+      {pdfRows && (
+        <section className="mb-6 rounded-lg border border-slate-200 p-4">
+          <p className="mb-3 text-sm">
+            <strong>{pdfRows.length}</strong> transaction(s) extracted by the local AI —
+            review, then save. (Nothing is stored until you click Save.)
+          </p>
+          <table className="w-full text-left text-sm">
+            <thead className="border-b border-slate-200 text-slate-500">
+              <tr>
+                <th scope="col" className="py-1">Date</th>
+                <th scope="col">Description</th>
+                <th scope="col" className="text-right">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pdfRows.slice(0, 50).map((r, i) => (
+                <tr key={i} className="border-b border-slate-100">
+                  <td className="py-1">{r.date}</td>
+                  <td>{r.description}</td>
+                  <td className="text-right tabular-nums">
+                    {(r.amount_cents / 100).toFixed(2)}
+                  </td>
+                </tr>
+              ))}
+              {pdfRows.length === 0 && (
+                <tr>
+                  <td colSpan={3} className="py-2 text-slate-400">
+                    No transactions were extracted — the PDF may be an unusual format.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+          {pdfRows.length > 0 && (
+            <button
+              className="mt-4 rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
+              onClick={doPdfSave}
+            >
+              Save import
+            </button>
+          )}
+        </section>
+      )}
 
       {mapping && headers.length > 0 && (
         <section className="mb-6 rounded-lg border border-slate-200 p-4">

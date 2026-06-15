@@ -9,6 +9,7 @@ vi.mock("../api/accounts");
 vi.mock("../api/imports");
 
 beforeEach(() => {
+  vi.clearAllMocks(); // reset call history so cross-test assertions stay isolated
   vi.mocked(accountsApi.listAccounts).mockResolvedValue([
     { id: 1, name: "Amex Gold", type: "credit", institution: null, currency: "USD", archived: false },
   ]);
@@ -27,13 +28,19 @@ beforeEach(() => {
     batch_id: 5, added_count: 1, duplicate_count: 0,
   });
   vi.mocked(importsApi.deleteBatch).mockResolvedValue(undefined);
+  vi.mocked(importsApi.pdfExtract).mockResolvedValue({
+    rows: [{ date: "2026-01-02", description: "WHOLE FOODS", amount_cents: -4599, direction: "debit" }],
+  });
+  vi.mocked(importsApi.pdfCommit).mockResolvedValue({
+    batch_id: 8, added_count: 1, duplicate_count: 0,
+  });
 });
 
 function selectFile() {
   const file = new File(["Date,Description,Amount\n2026-01-02,WHOLE FOODS,-45.99\n"], "stmt.csv", {
     type: "text/csv",
   });
-  return userEvent.upload(screen.getByLabelText(/csv file/i), file);
+  return userEvent.upload(screen.getByLabelText(/statement file/i), file);
 }
 
 test("guides upload -> analyze -> preview -> save", async () => {
@@ -75,4 +82,30 @@ test("surfaces an error when analyze fails", async () => {
   await screen.findByText("Amex Gold");
   await selectFile();
   expect(await screen.findByText("bad file")).toBeInTheDocument();
+});
+
+test("PDF upload extracts via local AI, reviews, and saves", async () => {
+  render(<Import />);
+  await screen.findByText("Amex Gold");
+
+  const pdf = new File([new Uint8Array([0x25, 0x50, 0x44, 0x46])], "stmt.pdf", {
+    type: "application/pdf",
+  });
+  await userEvent.upload(screen.getByLabelText(/statement file/i), pdf);
+
+  await waitFor(() => expect(vi.mocked(importsApi.pdfExtract)).toHaveBeenCalled());
+  // the CSV mapping flow must NOT run for a PDF
+  expect(vi.mocked(importsApi.analyzeCsv)).not.toHaveBeenCalled();
+  // extracted row shown for review
+  expect(await screen.findByText("WHOLE FOODS")).toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole("button", { name: /save import/i }));
+  await waitFor(() =>
+    expect(vi.mocked(importsApi.pdfCommit)).toHaveBeenCalledWith(
+      1,
+      "stmt.pdf",
+      expect.arrayContaining([expect.objectContaining({ description: "WHOLE FOODS" })]),
+    ),
+  );
+  expect(await screen.findByText(/imported 1/i)).toBeInTheDocument();
 });

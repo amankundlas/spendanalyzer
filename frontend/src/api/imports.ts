@@ -76,3 +76,16 @@ export const listBatches = (accountId: number) =>
 
 export const deleteBatch = (id: number) =>
   api<void>(`/imports/${id}`, { method: "DELETE" });
+
+export const pdfExtract = (file: File) => {
+  const fd = new FormData();
+  fd.append("file", file);
+  return api<{ rows: ParsedRow[] }>("/imports/pdf/extract", { method: "POST", body: fd });
+};
+
+export const pdfCommit = (accountId: number, filename: string, rows: ParsedRow[]) =>
+  api<ImportResult>("/imports/pdf/commit", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ account_id: accountId, filename, rows }),
+  });
