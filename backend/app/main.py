@@ -1,4 +1,5 @@
 import secrets
+import threading
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI
@@ -17,12 +18,28 @@ from app.api.rules import router as rules_router
 from app.api.transactions import router as transactions_router
 from app.config import get_settings
 from app.db import init_db
+from app.services.watcher import scan_once
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
-    yield
+    settings = get_settings()
+    stop = threading.Event()
+
+    def _watch_loop():
+        while not stop.wait(settings.watch_interval):
+            try:
+                scan_once(settings.watch_dir)
+            except Exception:
+                pass  # never let the watcher crash the app
+
+    thread = threading.Thread(target=_watch_loop, daemon=True)
+    thread.start()
+    try:
+        yield
+    finally:
+        stop.set()
 
 
 app = FastAPI(title=get_settings().app_name, lifespan=lifespan)

@@ -8,6 +8,7 @@ services:
         required: false
     volumes:
       - app-data:/data
+      - import-data:/import
     depends_on:
       - llm
     restart: unless-stopped
@@ -31,3 +32,4 @@ services:
 volumes:
   app-data:
   ollama-models:
+  import-data:

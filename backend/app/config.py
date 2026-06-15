@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     ollama_model: str = "qwen2.5:7b-instruct"
     session_secret: str = ""
     auth_password_hash: str = ""
+    watch_dir: str = "/import"
+    watch_interval: int = 30
 
 
 @lru_cache
