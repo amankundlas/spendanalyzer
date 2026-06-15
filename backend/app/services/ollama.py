@@ -57,3 +57,46 @@ class OllamaCategorizer:
 def get_categorizer() -> OllamaCategorizer:
     s = get_settings()
     return OllamaCategorizer(s.ollama_url, s.ollama_model, keep_alive="60s")
+
+
+class OllamaExtractor:
+    """Extract structured transactions from statement text via local Ollama."""
+
+    def __init__(self, base_url: str, model: str, keep_alive: str | int = "60s"):
+        self.base_url = base_url.rstrip("/")
+        self.model = model
+        self.keep_alive = keep_alive
+
+    def _prompt(self, text: str) -> str:
+        return (
+            "Extract every transaction from this bank/credit-card statement text.\n"
+            'Respond ONLY as JSON: {"transactions": [{"date": "YYYY-MM-DD", '
+            '"description": "...", "amount": <number, negative for money out>}]}.\n'
+            "Use ISO dates. If none are found, return an empty list.\n\n"
+            f"STATEMENT TEXT:\n{text}\n"
+        )
+
+    def extract(self, text: str) -> list[dict]:
+        try:
+            resp = httpx.post(
+                f"{self.base_url}/api/generate",
+                json={
+                    "model": self.model,
+                    "prompt": self._prompt(text),
+                    "format": "json",
+                    "stream": False,
+                    "keep_alive": self.keep_alive,
+                },
+                timeout=_TIMEOUT,
+            )
+            resp.raise_for_status()
+            data = json.loads(resp.json().get("response", ""))
+            txns = data.get("transactions", [])
+            return txns if isinstance(txns, list) else []
+        except (httpx.HTTPError, json.JSONDecodeError, KeyError, ValueError, TypeError):
+            return []
+
+
+def get_extractor() -> "OllamaExtractor":
+    s = get_settings()
+    return OllamaExtractor(s.ollama_url, s.ollama_model)
