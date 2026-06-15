@@ -214,7 +214,8 @@ export default function Transactions() {
       </p>
 
       <Card className="overflow-hidden">
-        <table className="w-full text-left text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[720px] text-left text-sm">
           <thead>
             <tr className="border-b border-line text-[11.5px] font-bold uppercase tracking-wide text-muted">
               <th scope="col" className="px-5 py-3">Date</th>
@@ -259,6 +260,7 @@ export default function Transactions() {
             )}
           </tbody>
         </table>
+        </div>
       </Card>
 
       {total > PAGE && (

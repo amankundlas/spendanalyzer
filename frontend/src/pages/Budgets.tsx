@@ -97,7 +97,7 @@ export default function Budgets() {
           const draft = drafts[c.id] ?? (rec ? String(rec.limit) : "");
           return (
             <Card key={c.id} className="p-4">
-              <div className="flex items-center justify-between gap-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <span className="flex items-center gap-2 font-bold text-ink">
                   <Dot color={c.color} size={10} />
                   {c.name}

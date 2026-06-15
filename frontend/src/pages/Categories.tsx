@@ -199,7 +199,8 @@ export default function Categories() {
           </label>
           <Button type="submit">Add rule</Button>
         </form>
-        <table className="w-full text-left text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[560px] text-left text-sm">
           <thead>
             <tr className="border-b border-line text-[11.5px] font-bold uppercase tracking-wide text-muted">
               <th scope="col" className="py-2.5 pr-3">Match</th>
@@ -243,6 +244,7 @@ export default function Categories() {
             )}
           </tbody>
         </table>
+        </div>
       </Card>
     </main>
   );

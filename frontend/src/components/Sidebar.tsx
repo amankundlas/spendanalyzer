@@ -20,47 +20,80 @@ const NAV = [
   { label: "Settings", to: "/settings", icon: I(<><circle cx="12" cy="12" r="3" /><path d="M19.1 15a1.7 1.7 0 0 0 .4 1.9l.1.1a2 2 0 1 1-2.9 2.8 1.7 1.7 0 0 0-2.9 1.2 2 2 0 1 1-4 0 1.7 1.7 0 0 0-2.9-1.2 2 2 0 1 1-2.8-2.9 1.7 1.7 0 0 0-1.2-2.9 2 2 0 1 1 0-4 1.7 1.7 0 0 0 1.2-2.9 2 2 0 1 1 2.8-2.8 1.7 1.7 0 0 0 2.9-1.2 2 2 0 1 1 4 0 1.7 1.7 0 0 0 2.9 1.2 2 2 0 1 1 2.8 2.8 1.7 1.7 0 0 0 1.2 2.9 2 2 0 1 1 0 4 1.7 1.7 0 0 0-1.6 1Z" /></>) },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({
+  open = false,
+  onClose,
+}: {
+  open?: boolean;
+  onClose?: () => void;
+}) {
   return (
-    <aside className="flex w-[230px] shrink-0 flex-col p-[14px] pt-[22px]">
-      <div className="mb-6 flex items-center gap-2.5 px-2">
-        <span className="grid h-[30px] w-[30px] place-items-center rounded-[10px] bg-accent text-[16px] font-extrabold text-white">
-          S
-        </span>
-        <span className="text-[19px] font-extrabold tracking-tight text-ink">Spend Analyzer</span>
-      </div>
-      <nav className="flex flex-col gap-0.5">
-        {NAV.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.to === "/"}
-            className={({ isActive }) =>
-              `flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-semibold transition-colors ${
-                isActive
-                  ? "bg-surface text-accent-d shadow-card [&_svg]:text-accent"
-                  : "text-ink2 [&_svg]:text-muted hover:text-ink"
-              }`
-            }
+    <>
+      {/* Backdrop — only on mobile when the drawer is open */}
+      <div
+        aria-hidden="true"
+        onClick={onClose}
+        className={`fixed inset-0 z-30 bg-black/40 backdrop-blur-sm transition-opacity lg:hidden ${
+          open ? "opacity-100" : "pointer-events-none opacity-0"
+        }`}
+      />
+
+      <aside
+        className={`fixed inset-y-0 left-0 z-40 flex w-[260px] max-w-[82vw] shrink-0 flex-col bg-bg p-[14px] pt-[18px] shadow-xl transition-transform duration-200 lg:static lg:z-auto lg:w-[230px] lg:max-w-none lg:translate-x-0 lg:pt-[22px] lg:shadow-none ${
+          open ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <div className="mb-6 flex items-center justify-between px-2">
+          <div className="flex items-center gap-2.5">
+            <span className="grid h-[30px] w-[30px] place-items-center rounded-[10px] bg-accent text-[16px] font-extrabold text-white">
+              S
+            </span>
+            <span className="text-[19px] font-extrabold tracking-tight text-ink">Spend Analyzer</span>
+          </div>
+          <button
+            aria-label="Close menu"
+            onClick={onClose}
+            className="grid h-8 w-8 place-items-center rounded-lg text-muted hover:text-ink cursor-pointer lg:hidden"
           >
-            {item.icon}
-            {item.label}
-          </NavLink>
-        ))}
-      </nav>
-      <div className="mt-auto flex items-center justify-between pt-4">
-        <button
-          className="flex items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-muted transition-colors hover:text-ink cursor-pointer"
-          onClick={async () => {
-            await authLogout();
-            window.location.reload();
-          }}
-        >
-          {I(<><circle cx="12" cy="8" r="3.5" /><path d="M5 21a7 7 0 0 1 14 0" /></>)}
-          Log out
-        </button>
-        <ThemeToggle />
-      </div>
-    </aside>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
+        </div>
+        <nav className="flex flex-col gap-0.5">
+          {NAV.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.to === "/"}
+              onClick={onClose}
+              className={({ isActive }) =>
+                `flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-semibold transition-colors ${
+                  isActive
+                    ? "bg-surface text-accent-d shadow-card [&_svg]:text-accent"
+                    : "text-ink2 [&_svg]:text-muted hover:text-ink"
+                }`
+              }
+            >
+              {item.icon}
+              {item.label}
+            </NavLink>
+          ))}
+        </nav>
+        <div className="mt-auto flex items-center justify-between pt-4">
+          <button
+            className="flex items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-muted transition-colors hover:text-ink cursor-pointer"
+            onClick={async () => {
+              await authLogout();
+              window.location.reload();
+            }}
+          >
+            {I(<><circle cx="12" cy="8" r="3.5" /><path d="M5 21a7 7 0 0 1 14 0" /></>)}
+            Log out
+          </button>
+          <ThemeToggle />
+        </div>
+      </aside>
+    </>
   );
 }
