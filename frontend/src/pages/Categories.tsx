@@ -8,6 +8,11 @@ import {
 } from "../api/categories";
 import { MatchType, Rule, createRule, deleteRule, listRules } from "../api/rules";
 import CategoryChip from "../components/CategoryChip";
+import PageHeader from "../components/PageHeader";
+import { Button, Card, CardHeader, EmptyState, Select } from "../components/ui";
+
+const fieldClass =
+  "mt-1.5 rounded-xl bg-bg px-3.5 py-2.5 text-sm text-ink outline-none ring-1 ring-line focus:ring-2 focus:ring-accent/50";
 
 export default function Categories() {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -91,53 +96,51 @@ export default function Categories() {
   };
 
   return (
-    <main className="flex-1 p-8">
-      <h2 className="text-2xl font-semibold mb-6">Categories &amp; Rules</h2>
-      {error && <p className="mb-4 text-sm text-rose-600">{error}</p>}
+    <main>
+      <PageHeader title="Categories & Rules" />
+      {error && <p className="mb-4 text-sm font-semibold text-spend">{error}</p>}
 
-      <section className="mb-10">
-        <h3 className="mb-3 font-medium">Categories</h3>
-        <form onSubmit={addCategory} className="mb-4 flex flex-wrap items-end gap-3 text-sm">
-          <label className="flex flex-col">
+      <Card className="mb-4 p-5">
+        <CardHeader title="Categories" />
+        <form onSubmit={addCategory} className="mb-4 flex flex-wrap items-end gap-3">
+          <label className="flex flex-col text-[13px] font-semibold text-ink2">
             Name
             <input
               aria-label="New category name"
-              className="mt-1 rounded border border-slate-300 px-2 py-1"
+              className={`${fieldClass} w-44`}
               value={catName}
               onChange={(e) => setCatName(e.target.value)}
               required
             />
           </label>
-          <label className="flex flex-col">
+          <label className="flex flex-col text-[13px] font-semibold text-ink2">
             Color
             <input
               aria-label="New category color"
               type="color"
-              className="mt-1 h-8 w-12 rounded border border-slate-300"
+              className="mt-1.5 h-[42px] w-12 cursor-pointer rounded-xl bg-bg p-1 ring-1 ring-line"
               value={catColor}
               onChange={(e) => setCatColor(e.target.value)}
             />
           </label>
-          <button className="rounded bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-700">
-            Add category
-          </button>
+          <Button type="submit">Add category</Button>
         </form>
         <div className="flex flex-wrap gap-2">
           {categories.map((c) => (
             <div
               key={c.id}
-              className="flex items-center gap-2 rounded border border-slate-200 px-2 py-1"
+              className="flex items-center gap-2 rounded-xl bg-bg px-2.5 py-1.5 ring-1 ring-line"
             >
               <CategoryChip name={c.name} color={c.color} />
               <input
                 aria-label={`Color for ${c.name}`}
                 type="color"
-                className="h-5 w-5 border-0 bg-transparent p-0"
+                className="h-5 w-5 cursor-pointer border-0 bg-transparent p-0"
                 value={c.color}
                 onChange={(e) => recolor(c.id, e.target.value)}
               />
               <button
-                className="text-xs text-slate-400 hover:text-rose-600"
+                className="text-xs font-bold text-muted transition-colors hover:text-spend cursor-pointer"
                 aria-label={`Delete category ${c.name}`}
                 onClick={() => removeCategory(c.id)}
               >
@@ -145,42 +148,45 @@ export default function Categories() {
               </button>
             </div>
           ))}
+          {categories.length === 0 && (
+            <EmptyState>No categories yet.</EmptyState>
+          )}
         </div>
-      </section>
+      </Card>
 
-      <section>
-        <h3 className="mb-3 font-medium">Rules</h3>
-        <p className="mb-3 text-sm text-slate-500">
-          Rules auto-assign a category to matching transactions on import. Lower priority number wins.
-        </p>
-        <form onSubmit={addRule} className="mb-4 flex flex-wrap items-end gap-3 text-sm">
-          <label className="flex flex-col">
+      <Card className="p-5">
+        <CardHeader
+          title="Rules"
+          meta="Auto-assign on import · lower priority number wins"
+        />
+        <form onSubmit={addRule} className="mb-4 flex flex-wrap items-end gap-3">
+          <label className="flex flex-col text-[13px] font-semibold text-ink2">
             Match
-            <select
+            <Select
               aria-label="Rule match type"
-              className="mt-1 rounded border border-slate-300 px-2 py-1"
+              className="mt-1.5"
               value={matchType}
               onChange={(e) => setMatchType(e.target.value as MatchType)}
             >
               <option value="merchant_contains">merchant contains</option>
               <option value="regex">regex</option>
-            </select>
+            </Select>
           </label>
-          <label className="flex flex-col">
+          <label className="flex flex-col text-[13px] font-semibold text-ink2">
             Pattern
             <input
               aria-label="Rule pattern"
-              className="mt-1 rounded border border-slate-300 px-2 py-1"
+              className={`${fieldClass} w-48`}
               value={pattern}
               onChange={(e) => setPattern(e.target.value)}
               required
             />
           </label>
-          <label className="flex flex-col">
+          <label className="flex flex-col text-[13px] font-semibold text-ink2">
             Category
-            <select
+            <Select
               aria-label="Rule category"
-              className="mt-1 rounded border border-slate-300 px-2 py-1"
+              className="mt-1.5"
               value={ruleCategoryId}
               onChange={(e) => setRuleCategoryId(e.target.value ? Number(e.target.value) : "")}
             >
@@ -189,19 +195,17 @@ export default function Categories() {
                   {c.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
-          <button className="rounded bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-700">
-            Add rule
-          </button>
+          <Button type="submit">Add rule</Button>
         </form>
         <table className="w-full text-left text-sm">
-          <thead className="border-b border-slate-200 text-slate-500">
-            <tr>
-              <th scope="col" className="py-1">Match</th>
-              <th scope="col">Pattern</th>
-              <th scope="col">Category</th>
-              <th scope="col">Priority</th>
+          <thead>
+            <tr className="border-b border-line text-[11.5px] font-bold uppercase tracking-wide text-muted">
+              <th scope="col" className="py-2.5 pr-3">Match</th>
+              <th scope="col" className="pr-3">Pattern</th>
+              <th scope="col" className="pr-3">Category</th>
+              <th scope="col" className="pr-3">Priority</th>
               <th scope="col" className="text-right">
                 <span className="sr-only">Actions</span>
               </th>
@@ -211,16 +215,16 @@ export default function Categories() {
             {rules.map((r) => {
               const c = categoryFor(r.category_id);
               return (
-                <tr key={r.id} className="border-b border-slate-100">
-                  <td className="py-1">{r.match_type}</td>
-                  <td className="font-mono">{r.pattern}</td>
-                  <td>
+                <tr key={r.id} className="border-b border-line/70 last:border-0">
+                  <td className="py-2.5 pr-3 font-semibold text-ink2">{r.match_type}</td>
+                  <td className="pr-3 font-mono text-ink">{r.pattern}</td>
+                  <td className="pr-3">
                     <CategoryChip name={c?.name ?? null} color={c?.color} />
                   </td>
-                  <td>{r.priority}</td>
+                  <td className="pr-3 tabnum text-ink2">{r.priority}</td>
                   <td className="text-right">
                     <button
-                      className="text-xs text-slate-400 hover:text-rose-600"
+                      className="text-xs font-bold text-muted transition-colors hover:text-spend cursor-pointer"
                       aria-label={`Delete rule ${r.pattern}`}
                       onClick={() => removeRule(r.id)}
                     >
@@ -232,14 +236,14 @@ export default function Categories() {
             })}
             {rules.length === 0 && (
               <tr>
-                <td colSpan={5} className="py-3 text-slate-400">
-                  No rules yet.
+                <td colSpan={5}>
+                  <EmptyState>No rules yet.</EmptyState>
                 </td>
               </tr>
             )}
           </tbody>
         </table>
-      </section>
+      </Card>
     </main>
   );
 }

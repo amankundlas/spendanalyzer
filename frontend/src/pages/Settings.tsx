@@ -1,5 +1,10 @@
 import { useState } from "react";
 import { changePassword } from "../api/auth";
+import PageHeader from "../components/PageHeader";
+import { Button, Card } from "../components/ui";
+
+const fieldClass =
+  "mt-1.5 w-full rounded-xl bg-bg px-3.5 py-2.5 text-sm text-ink outline-none ring-1 ring-line focus:ring-2 focus:ring-accent/50";
 
 export default function Settings() {
   const [current, setCurrent] = useState("");
@@ -22,41 +27,38 @@ export default function Settings() {
   };
 
   return (
-    <main className="flex-1 p-8">
-      <h2 className="text-2xl font-semibold mb-6">Settings</h2>
-      <form onSubmit={submit} className="max-w-sm space-y-3">
-        <h3 className="font-medium">Change password</h3>
-        <label className="block text-sm">
-          Current password
-          <input
-            aria-label="Current password"
-            type="password"
-            className="mt-1 w-full rounded border border-slate-300 px-2 py-1"
-            value={current}
-            onChange={(e) => setCurrent(e.target.value)}
-            required
-          />
-        </label>
-        <label className="block text-sm">
-          New password
-          <input
-            aria-label="New password"
-            type="password"
-            className="mt-1 w-full rounded border border-slate-300 px-2 py-1"
-            value={next}
-            onChange={(e) => setNext(e.target.value)}
-            required
-          />
-        </label>
-        {error && <p className="text-sm text-rose-600">{error}</p>}
-        {message && <p className="text-sm text-emerald-700">{message}</p>}
-        <button
-          type="submit"
-          className="rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
-        >
-          Change password
-        </button>
-      </form>
+    <main>
+      <PageHeader title="Settings" />
+      <Card className="max-w-md p-6">
+        <form onSubmit={submit} className="space-y-4">
+          <h3 className="text-[15px] font-extrabold tracking-tight text-ink">Change password</h3>
+          <label className="block text-[13px] font-semibold text-ink2">
+            Current password
+            <input
+              aria-label="Current password"
+              type="password"
+              className={fieldClass}
+              value={current}
+              onChange={(e) => setCurrent(e.target.value)}
+              required
+            />
+          </label>
+          <label className="block text-[13px] font-semibold text-ink2">
+            New password
+            <input
+              aria-label="New password"
+              type="password"
+              className={fieldClass}
+              value={next}
+              onChange={(e) => setNext(e.target.value)}
+              required
+            />
+          </label>
+          {error && <p className="text-sm font-semibold text-spend">{error}</p>}
+          {message && <p className="text-sm font-semibold text-ok">{message}</p>}
+          <Button type="submit">Change password</Button>
+        </form>
+      </Card>
     </main>
   );
 }

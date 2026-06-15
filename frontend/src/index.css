@@ -1,1 +1,68 @@
+@import url("https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap");
 @import "tailwindcss";
+
+/* Dark mode is class-based (.dark on <html>), toggled by the theme switch. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ---- Aspen design tokens (light) ---- */
+:root {
+  --bg: #f3f4f8;
+  --surface: #ffffff;
+  --ink: #171a22;
+  --ink2: #3b4150;
+  --muted: #868c9b;
+  --line: #eceef3;
+  --accent: #5b6ef0;
+  --accent-d: #4453d6;
+  --soft: #e9ecfd;
+  --spend: #fb6f92;
+  --ok: #0d9488;
+  --track: #eff1f5;
+  --sh: 0 1px 2px rgba(20, 26, 40, 0.05), 0 12px 26px -16px rgba(20, 26, 40, 0.16);
+}
+
+/* ---- Aspen design tokens (dark) ---- */
+html.dark {
+  --bg: #0e1016;
+  --surface: #171a22;
+  --ink: #eceef4;
+  --ink2: #bcc1cd;
+  --muted: #7c8392;
+  --line: #252934;
+  --accent: #8190ff;
+  --accent-d: #6d7cf5;
+  --soft: #1f2436;
+  --spend: #fb6f92;
+  --ok: #34d399;
+  --track: #222632;
+  --sh: 0 1px 2px rgba(0, 0, 0, 0.3), 0 14px 30px -18px rgba(0, 0, 0, 0.7);
+}
+
+/* Map tokens onto Tailwind utilities (inline keeps the var(), so they flip with .dark). */
+@theme inline {
+  --font-sans: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-ink2: var(--ink2);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-d: var(--accent-d);
+  --color-soft: var(--soft);
+  --color-spend: var(--spend);
+  --color-ok: var(--ok);
+  --color-track: var(--track);
+  --shadow-card: var(--sh);
+  --radius-card: 18px;
+  --radius-pill: 999px;
+}
+
+html, body, #root { height: 100%; }
+body {
+  background-color: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+.tabnum { font-variant-numeric: tabular-nums; }
