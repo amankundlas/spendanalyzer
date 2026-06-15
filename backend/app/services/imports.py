@@ -33,19 +33,27 @@ def preview_import(
     return ImportPreview(rows=parsed, added_count=added, duplicate_count=duplicate)
 
 
-def commit_import(
-    session: Session, account_id: int, filename: str, text: str, mapping: ColumnMapping
+def persist_parsed_rows(
+    session: Session,
+    account_id: int,
+    filename: str,
+    source: str,
+    parsed: list,
 ) -> ImportResult:
+    """Persist already-parsed rows with dedupe + rules-categorization + a batch.
+
+    Shared by CSV (`commit_import`) and PDF import. `parsed` is a list of
+    objects with .date/.description/.amount_cents/.direction (ParsedRow).
+    """
     from app.models import CategoryRule
     from app.services.categorize import match_category
 
-    parsed = parse_rows(text, mapping)
     rules = list(session.exec(select(CategoryRule)))
     existing = _existing_hashes(session, account_id)
 
-    batch = ImportBatch(account_id=account_id, source="csv", filename=filename)
+    batch = ImportBatch(account_id=account_id, source=source, filename=filename)
     session.add(batch)
-    session.flush()  # assign batch.id without committing — keeps the import atomic
+    session.flush()
     batch_id = batch.id
 
     added = 0
@@ -66,7 +74,7 @@ def commit_import(
                 merchant=normalized,
                 amount_cents=row.amount_cents,
                 direction=row.direction,
-                source="csv",
+                source=source,
                 import_batch_id=batch_id,
                 dedupe_hash=h,
                 category_id=match_category(rules, normalized, row.description),
@@ -77,10 +85,15 @@ def commit_import(
     batch.added_count = added
     batch.duplicate_count = duplicate
     session.add(batch)
-    # Single commit persists the batch and its transactions together (atomic):
-    # if anything in the loop had failed, nothing is left stranded.
     session.commit()
     return ImportResult(batch_id=batch_id, added_count=added, duplicate_count=duplicate)
+
+
+def commit_import(
+    session: Session, account_id: int, filename: str, text: str, mapping: ColumnMapping
+) -> ImportResult:
+    parsed = parse_rows(text, mapping)
+    return persist_parsed_rows(session, account_id, filename, "csv", parsed)
 
 
 def delete_batch(session: Session, batch_id: int) -> None:

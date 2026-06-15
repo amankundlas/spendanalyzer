@@ -16,9 +16,11 @@ from sqlmodel import Session, select
 
 from app.db import get_session
 from app.models import Account, ImportBatch
-from app.schemas import ColumnMapping, DetectedColumns
+from app.schemas import ColumnMapping, DetectedColumns, ParsedRow
 from app.services.csv_import import detect_columns
-from app.services.imports import commit_import, delete_batch, preview_import
+from app.services.imports import commit_import, delete_batch, persist_parsed_rows, preview_import
+from app.services.ollama import OllamaExtractor, get_extractor
+from app.services.pdf import extract_text, to_parsed_rows
 
 router = APIRouter()
 
@@ -110,3 +112,33 @@ def remove_batch(batch_id: int, session: Session = Depends(get_session)) -> None
     if session.get(ImportBatch, batch_id) is None:
         raise HTTPException(status_code=404, detail="batch not found")
     delete_batch(session, batch_id)
+
+
+class PdfExtractResult(BaseModel):
+    rows: list[ParsedRow]
+
+
+@router.post("/imports/pdf/extract", response_model=PdfExtractResult)
+async def pdf_extract(
+    file: UploadFile = File(...),
+    extractor: OllamaExtractor = Depends(get_extractor),
+) -> PdfExtractResult:
+    raw = await file.read()
+    try:
+        text = extract_text(raw)
+    except Exception as exc:  # malformed PDF
+        raise HTTPException(status_code=400, detail="could not read PDF") from exc
+    rows = to_parsed_rows(extractor.extract(text))
+    return PdfExtractResult(rows=rows)
+
+
+class PdfCommitBody(BaseModel):
+    account_id: int
+    filename: str = "statement.pdf"
+    rows: list[ParsedRow]
+
+
+@router.post("/imports/pdf/commit", status_code=status.HTTP_201_CREATED)
+def pdf_commit(body: PdfCommitBody, session: Session = Depends(get_session)):
+    _require_account(session, body.account_id)
+    return persist_parsed_rows(session, body.account_id, body.filename, "pdf", body.rows)
