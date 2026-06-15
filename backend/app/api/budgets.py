@@ -5,6 +5,7 @@ from sqlmodel import Session, select
 from app.db import get_session
 from app.models import Budget
 from app.money import cents_to_dollars
+from app.services.budgets import budget_status
 
 router = APIRouter()
 
@@ -60,3 +61,8 @@ def delete_budget(budget_id: int, session: Session = Depends(get_session)) -> No
         raise HTTPException(status_code=404, detail="budget not found")
     session.delete(budget)
     session.commit()
+
+
+@router.get("/budgets/status")
+def get_budget_status(month: str, session: Session = Depends(get_session)) -> list[dict]:
+    return budget_status(session, month)
