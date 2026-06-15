@@ -20,6 +20,11 @@ ssh "$REMOTE" "set -e
     exit 1
   fi
   docker compose -f docker-compose.yml -f docker-compose.minipc.yml up -d --build
+  # The watched-folder bind mount (./import) is auto-created by Docker as root;
+  # chown it (from inside the root api container) to the host user so files can
+  # be dropped in from the host. Idempotent.
+  docker compose -f docker-compose.yml -f docker-compose.minipc.yml exec -T api \\
+    chown -R \"\$(id -u):\$(id -g)\" /import || true
   # Ensure the local LLM model is present (idempotent: 'ollama pull' is a no-op
   # if already downloaded). The first run fetches ~5GB; later deploys are instant.
   MODEL=\$(grep -E '^OLLAMA_MODEL=' .env | tail -n1 | cut -d= -f2-)
