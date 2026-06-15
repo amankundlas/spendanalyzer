@@ -7,7 +7,7 @@ export function formatMoney(amount: number): string {
 export default function Money({ amount }: { amount: number }) {
   const negative = amount < 0;
   return (
-    <span className={negative ? "text-rose-600" : "text-emerald-700"}>
+    <span className={`tabnum font-semibold ${negative ? "text-spend" : "text-ok"}`}>
       {formatMoney(amount)}
     </span>
   );

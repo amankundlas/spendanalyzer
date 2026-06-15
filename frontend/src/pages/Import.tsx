@@ -13,6 +13,8 @@ import {
   pdfExtract,
   previewImport,
 } from "../api/imports";
+import PageHeader from "../components/PageHeader";
+import { Button, Card, CardHeader, EmptyState, Select } from "../components/ui";
 
 export default function Import() {
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -148,99 +150,100 @@ export default function Import() {
     setMapping((m) => (m ? { ...m, [field]: value === "" ? null : value } : m));
 
   return (
-    <main className="flex-1 p-8">
-      <h2 className="text-2xl font-semibold mb-6">Import</h2>
+    <main>
+      <PageHeader title="Import" subtitle="Upload a CSV or PDF statement to add transactions." />
 
-      <div className="mb-6 flex flex-wrap items-end gap-3 text-sm">
-        <label className="flex flex-col">
-          Account
-          <select
-            aria-label="Account"
-            className="mt-1 rounded border border-slate-300 px-2 py-1"
-            value={accountId ?? ""}
-            onChange={(e) => setAccountId(e.target.value ? Number(e.target.value) : undefined)}
-          >
-            {accounts.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col">
-          Statement file (CSV or PDF)
-          <input
-            key={fileKey}
-            type="file"
-            accept=".csv,.pdf,text/csv,application/pdf"
-            className="mt-1"
-            onChange={(e) => onFile(e.target.files?.[0] ?? null)}
-          />
-        </label>
-      </div>
+      <Card className="mb-4 p-5">
+        <div className="flex flex-wrap items-end gap-4">
+          <label className="flex flex-col text-[13px] font-semibold text-ink2">
+            Account
+            <Select
+              aria-label="Account"
+              className="mt-1.5"
+              value={accountId ?? ""}
+              onChange={(e) => setAccountId(e.target.value ? Number(e.target.value) : undefined)}
+            >
+              {accounts.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+            </Select>
+          </label>
+          <label className="flex flex-col text-[13px] font-semibold text-ink2">
+            Statement file (CSV or PDF)
+            <input
+              key={fileKey}
+              type="file"
+              accept=".csv,.pdf,text/csv,application/pdf"
+              className="mt-1.5 text-sm text-ink2 file:mr-3 file:cursor-pointer file:rounded-xl file:border-0 file:bg-soft file:px-4 file:py-2 file:text-[13px] file:font-bold file:text-accent-d"
+              onChange={(e) => onFile(e.target.files?.[0] ?? null)}
+            />
+          </label>
+        </div>
+      </Card>
 
-      {error && <p className="mb-4 text-sm text-rose-600">{error}</p>}
-      {message && <p className="mb-4 text-sm text-emerald-700">{message}</p>}
+      {error && <p className="mb-4 text-sm font-semibold text-spend">{error}</p>}
+      {message && <p className="mb-4 text-sm font-semibold text-ok">{message}</p>}
       {pdfBusy && (
-        <p className="mb-4 text-sm text-slate-500">
+        <p className="mb-4 text-sm font-semibold text-muted">
           Extracting transactions from the PDF with the local AI… (this can take a moment)
         </p>
       )}
 
       {pdfRows && (
-        <section className="mb-6 rounded-lg border border-slate-200 p-4">
-          <p className="mb-3 text-sm">
-            <strong>{pdfRows.length}</strong> transaction(s) extracted by the local AI —
+        <Card className="mb-4 p-5">
+          <p className="mb-3 text-sm font-medium text-ink2">
+            <strong className="font-extrabold text-ink">{pdfRows.length}</strong> transaction(s) extracted by the local AI —
             review, then save. (Nothing is stored until you click Save.)
           </p>
           <table className="w-full text-left text-sm">
-            <thead className="border-b border-slate-200 text-slate-500">
-              <tr>
-                <th scope="col" className="py-1">Date</th>
-                <th scope="col">Description</th>
+            <thead>
+              <tr className="border-b border-line text-[11.5px] font-bold uppercase tracking-wide text-muted">
+                <th scope="col" className="py-2.5 pr-3">Date</th>
+                <th scope="col" className="pr-3">Description</th>
                 <th scope="col" className="text-right">Amount</th>
               </tr>
             </thead>
             <tbody>
               {pdfRows.slice(0, 50).map((r, i) => (
-                <tr key={i} className="border-b border-slate-100">
-                  <td className="py-1">{r.date}</td>
-                  <td>{r.description}</td>
-                  <td className="text-right tabular-nums">
+                <tr key={i} className="border-b border-line/70 last:border-0">
+                  <td className="py-2 pr-3 font-semibold text-ink2 tabnum">{r.date}</td>
+                  <td className="pr-3 text-ink">{r.description}</td>
+                  <td className="text-right tabnum font-semibold text-ink">
                     {(r.amount_cents / 100).toFixed(2)}
                   </td>
                 </tr>
               ))}
               {pdfRows.length === 0 && (
                 <tr>
-                  <td colSpan={3} className="py-2 text-slate-400">
-                    No transactions were extracted — the PDF may be an unusual format.
+                  <td colSpan={3}>
+                    <EmptyState>
+                      No transactions were extracted — the PDF may be an unusual format.
+                    </EmptyState>
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
           {pdfRows.length > 0 && (
-            <button
-              className="mt-4 rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
-              onClick={doPdfSave}
-            >
+            <Button className="mt-4" onClick={doPdfSave}>
               Save import
-            </button>
+            </Button>
           )}
-        </section>
+        </Card>
       )}
 
       {mapping && headers.length > 0 && (
-        <section className="mb-6 rounded-lg border border-slate-200 p-4">
-          <h3 className="mb-3 font-medium">Confirm column mapping</h3>
-          <div className="flex flex-wrap gap-3 text-sm">
+        <Card className="mb-4 p-5">
+          <CardHeader title="Confirm column mapping" />
+          <div className="flex flex-wrap gap-3">
             {(["date", "description", "amount", "debit", "credit"] as const).map((field) => (
-              <label key={field} className="flex flex-col capitalize">
+              <label key={field} className="flex flex-col text-[13px] font-semibold capitalize text-ink2">
                 {field}
-                <select
+                <Select
                   aria-label={`${field} column`}
-                  className="mt-1 rounded border border-slate-300 px-2 py-1"
+                  className="mt-1.5"
                   value={(mapping[field] as string) ?? ""}
                   onChange={(e) => setMap(field, e.target.value)}
                 >
@@ -250,60 +253,54 @@ export default function Import() {
                       {h}
                     </option>
                   ))}
-                </select>
+                </Select>
               </label>
             ))}
           </div>
-          <button
-            className="mt-4 rounded bg-slate-200 px-4 py-2 text-sm font-medium hover:bg-slate-300"
-            onClick={doPreview}
-          >
+          <Button variant="ghost" className="mt-4" onClick={doPreview}>
             Preview
-          </button>
-        </section>
+          </Button>
+        </Card>
       )}
 
       {preview && (
-        <section className="mb-6 rounded-lg border border-slate-200 p-4">
-          <p className="mb-3 text-sm">
-            <strong>{preview.added_count} new</strong>, {preview.duplicate_count} duplicate(s)
+        <Card className="mb-4 p-5">
+          <p className="mb-3 text-sm font-medium text-ink2">
+            <strong className="font-extrabold text-ink">{preview.added_count} new</strong>, {preview.duplicate_count} duplicate(s)
             will be skipped.
           </p>
           <table className="w-full text-left text-sm">
-            <thead className="border-b border-slate-200 text-slate-500">
-              <tr>
-                <th scope="col" className="py-1">Date</th>
-                <th scope="col">Description</th>
+            <thead>
+              <tr className="border-b border-line text-[11.5px] font-bold uppercase tracking-wide text-muted">
+                <th scope="col" className="py-2.5 pr-3">Date</th>
+                <th scope="col" className="pr-3">Description</th>
                 <th scope="col" className="text-right">Amount (cents)</th>
               </tr>
             </thead>
             <tbody>
               {preview.rows.slice(0, 20).map((r, i) => (
-                <tr key={i} className="border-b border-slate-100">
-                  <td className="py-1">{r.date}</td>
-                  <td>{r.description}</td>
-                  <td className="text-right tabular-nums">{r.amount_cents}</td>
+                <tr key={i} className="border-b border-line/70 last:border-0">
+                  <td className="py-2 pr-3 font-semibold text-ink2 tabnum">{r.date}</td>
+                  <td className="pr-3 text-ink">{r.description}</td>
+                  <td className="text-right tabnum font-semibold text-ink">{r.amount_cents}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-          <button
-            className="mt-4 rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
-            onClick={doSave}
-          >
+          <Button className="mt-4" onClick={doSave}>
             Save import
-          </button>
-        </section>
+          </Button>
+        </Card>
       )}
 
-      <section>
-        <h3 className="mb-3 font-medium">Recent imports</h3>
+      <Card className="p-5">
+        <CardHeader title="Recent imports" />
         <table className="w-full text-left text-sm">
-          <thead className="border-b border-slate-200 text-slate-500">
-            <tr>
-              <th scope="col" className="py-1">File</th>
-              <th scope="col">Added</th>
-              <th scope="col">Duplicates</th>
+          <thead>
+            <tr className="border-b border-line text-[11.5px] font-bold uppercase tracking-wide text-muted">
+              <th scope="col" className="py-2.5 pr-3">File</th>
+              <th scope="col" className="pr-3">Added</th>
+              <th scope="col" className="pr-3">Duplicates</th>
               <th scope="col" className="text-right">
                 <span className="sr-only">Actions</span>
               </th>
@@ -311,13 +308,13 @@ export default function Import() {
           </thead>
           <tbody>
             {batches.map((b) => (
-              <tr key={b.id} className="border-b border-slate-100">
-                <td className="py-1">{b.filename}</td>
-                <td>{b.added_count}</td>
-                <td>{b.duplicate_count}</td>
+              <tr key={b.id} className="border-b border-line/70 last:border-0">
+                <td className="py-2.5 pr-3 font-semibold text-ink">{b.filename}</td>
+                <td className="pr-3 tabnum text-ok">{b.added_count}</td>
+                <td className="pr-3 tabnum text-ink2">{b.duplicate_count}</td>
                 <td className="text-right">
                   <button
-                    className="text-xs text-slate-500 hover:text-rose-600"
+                    className="text-xs font-bold text-muted transition-colors hover:text-spend cursor-pointer"
                     aria-label={`Delete import ${b.filename}`}
                     onClick={() => removeBatch(b.id)}
                   >
@@ -328,14 +325,14 @@ export default function Import() {
             ))}
             {batches.length === 0 && (
               <tr>
-                <td colSpan={4} className="py-3 text-slate-400">
-                  No imports yet.
+                <td colSpan={4}>
+                  <EmptyState>No imports yet.</EmptyState>
                 </td>
               </tr>
             )}
           </tbody>
         </table>
-      </section>
+      </Card>
     </main>
   );
 }

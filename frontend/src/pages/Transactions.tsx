@@ -5,6 +5,8 @@ import { aiCategorize } from "../api/categorize";
 import { applyRules } from "../api/rules";
 import { Transaction, listTransactions, recategorize } from "../api/transactions";
 import Money from "../components/Money";
+import PageHeader from "../components/PageHeader";
+import { Badge, Button, Card, EmptyState, Select, TextInput } from "../components/ui";
 
 const PAGE = 100;
 
@@ -109,13 +111,24 @@ export default function Transactions() {
   };
 
   return (
-    <main className="flex-1 p-8">
-      <h2 className="text-2xl font-semibold mb-6">Transactions</h2>
+    <main>
+      <PageHeader
+        title="Transactions"
+        right={
+          <>
+            <Button variant="ghost" onClick={onApplyRules}>
+              Apply rules
+            </Button>
+            <Button onClick={onAiCategorize} disabled={aiBusy}>
+              {aiBusy ? "Categorizing…" : "Categorize with AI"}
+            </Button>
+          </>
+        }
+      />
 
-      <div className="mb-6 flex flex-wrap items-end gap-3 text-sm">
-        <select
+      <div className="mb-4 flex flex-wrap items-center gap-2.5">
+        <Select
           aria-label="Account filter"
-          className="rounded border border-slate-300 px-2 py-1"
           value={accountId ?? ""}
           onChange={(e) => {
             setOffset(0);
@@ -128,40 +141,45 @@ export default function Transactions() {
               {a.name}
             </option>
           ))}
-        </select>
-        <input
+        </Select>
+        <TextInput
           placeholder="Search description"
           aria-label="Search description"
-          className="rounded border border-slate-300 px-2 py-1"
+          className="w-56"
+          icon={
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <circle cx="11" cy="11" r="7" />
+              <path d="m20 20-3.2-3.2" />
+            </svg>
+          }
           value={search}
           onChange={(e) => {
             setOffset(0);
             setSearch(e.target.value);
           }}
         />
-        <input
+        <TextInput
           type="date"
           aria-label="Start date"
-          className="rounded border border-slate-300 px-2 py-1"
+          className="w-[150px]"
           value={start}
           onChange={(e) => {
             setOffset(0);
             setStart(e.target.value);
           }}
         />
-        <input
+        <TextInput
           type="date"
           aria-label="End date"
-          className="rounded border border-slate-300 px-2 py-1"
+          className="w-[150px]"
           value={end}
           onChange={(e) => {
             setOffset(0);
             setEnd(e.target.value);
           }}
         />
-        <select
+        <Select
           aria-label="Category filter"
-          className="rounded border border-slate-300 px-2 py-1"
           value={catFilter}
           onChange={(e) => {
             setOffset(0);
@@ -174,10 +192,11 @@ export default function Transactions() {
               {c.name}
             </option>
           ))}
-        </select>
-        <label className="flex items-center gap-1">
+        </Select>
+        <label className="flex cursor-pointer items-center gap-2 rounded-xl bg-surface px-3.5 py-2.5 text-[13px] font-semibold text-ink2 shadow-card">
           <input
             type="checkbox"
+            className="accent-[var(--accent)]"
             checked={uncategorized}
             onChange={(e) => {
               setOffset(0);
@@ -186,88 +205,81 @@ export default function Transactions() {
           />
           Uncategorized only
         </label>
-        <button
-          className="rounded border border-slate-300 px-3 py-1 hover:bg-slate-100"
-          onClick={onApplyRules}
-        >
-          Apply rules
-        </button>
-        <button
-          className="rounded border border-slate-300 px-3 py-1 hover:bg-slate-100 disabled:opacity-50"
-          onClick={onAiCategorize}
-          disabled={aiBusy}
-        >
-          {aiBusy ? "Categorizing…" : "Categorize with AI"}
-        </button>
       </div>
 
-      {error && <p className="mb-4 text-sm text-rose-600">{error}</p>}
-      {message && <p className="mb-2 text-sm text-emerald-700">{message}</p>}
-      <p className="mb-2 text-sm text-slate-500">
+      {error && <p className="mb-4 text-sm font-semibold text-spend">{error}</p>}
+      {message && <p className="mb-2 text-sm font-semibold text-ok">{message}</p>}
+      <p className="mb-3 text-[13px] font-semibold text-muted">
         {loading ? "Loading…" : `${total} transactions`}
       </p>
-      <table className="w-full text-left text-sm">
-        <thead className="border-b border-slate-200 text-slate-500">
-          <tr>
-            <th scope="col" className="py-2">Date</th>
-            <th scope="col">Description</th>
-            <th scope="col">Account</th>
-            <th scope="col">Category</th>
-            <th scope="col" className="text-right">Amount</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((t) => (
-            <tr key={t.id} className="border-b border-slate-100">
-              <td className="py-2 whitespace-nowrap">{t.date}</td>
-              <td>{t.description}</td>
-              <td className="text-slate-500">{accountName(t.account_id)}</td>
-              <td>
-                <select
-                  aria-label={`Category for ${t.description}`}
-                  className="rounded border border-slate-200 px-1 py-0.5 text-xs"
-                  value={t.category_id ?? ""}
-                  onChange={(e) => onRecategorize(t.id, e.target.value)}
-                >
-                  <option value="">Uncategorized</option>
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </td>
-              <td className="text-right tabular-nums">
-                <Money amount={t.amount} />
-              </td>
+
+      <Card className="overflow-hidden">
+        <table className="w-full text-left text-sm">
+          <thead>
+            <tr className="border-b border-line text-[11.5px] font-bold uppercase tracking-wide text-muted">
+              <th scope="col" className="px-5 py-3">Date</th>
+              <th scope="col" className="px-3 py-3">Description</th>
+              <th scope="col" className="px-3 py-3">Account</th>
+              <th scope="col" className="px-3 py-3">Category</th>
+              <th scope="col" className="px-5 py-3 text-right">Amount</th>
             </tr>
-          ))}
-          {!loading && items.length === 0 && (
-            <tr>
-              <td colSpan={5} className="py-4 text-slate-400">
-                No transactions match these filters.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {items.map((t) => (
+              <tr key={t.id} className="border-b border-line/70 last:border-0 hover:bg-bg/60">
+                <td className="whitespace-nowrap px-5 py-2.5 font-semibold text-ink2 tabnum">{t.date}</td>
+                <td className="px-3 py-2.5 font-semibold text-ink">{t.description}</td>
+                <td className="px-3 py-2.5 text-ink2">{accountName(t.account_id)}</td>
+                <td className="px-3 py-2.5">
+                  <Select
+                    aria-label={`Category for ${t.description}`}
+                    className="!py-1.5 !text-xs"
+                    value={t.category_id ?? ""}
+                    onChange={(e) => onRecategorize(t.id, e.target.value)}
+                  >
+                    <option value="">Uncategorized</option>
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </Select>
+                </td>
+                <td className="px-5 py-2.5 text-right">
+                  <Money amount={t.amount} />
+                </td>
+              </tr>
+            ))}
+            {!loading && items.length === 0 && (
+              <tr>
+                <td colSpan={5}>
+                  <EmptyState>No transactions match these filters.</EmptyState>
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </Card>
 
       {total > PAGE && (
-        <div className="mt-4 flex gap-2 text-sm">
-          <button
-            className="rounded border border-slate-300 px-3 py-1 disabled:opacity-40"
+        <div className="mt-4 flex items-center gap-2">
+          <Button
+            variant="ghost"
             disabled={offset === 0}
             onClick={() => setOffset(Math.max(0, offset - PAGE))}
           >
             Previous
-          </button>
-          <button
-            className="rounded border border-slate-300 px-3 py-1 disabled:opacity-40"
+          </Button>
+          <Badge tone="flat">
+            {offset + 1}–{Math.min(offset + PAGE, total)} of {total}
+          </Badge>
+          <Button
+            variant="ghost"
             disabled={offset + PAGE >= total}
             onClick={() => setOffset(offset + PAGE)}
           >
             Next
-          </button>
+          </Button>
         </div>
       )}
     </main>

@@ -8,11 +8,13 @@ import {
 } from "../api/budgets";
 import { Category, listCategories } from "../api/categories";
 import { formatMoney } from "../components/Money";
+import PageHeader from "../components/PageHeader";
+import { Card, Dot, EmptyState, ProgressBar, TextInput } from "../components/ui";
 
 const BAR_COLOR: Record<BudgetStatus["status"], string> = {
-  under: "bg-emerald-500",
-  near: "bg-amber-500",
-  over: "bg-rose-500",
+  under: "var(--ok)",
+  near: "#f59e0b",
+  over: "var(--spend)",
 };
 
 function currentMonth(): string {
@@ -68,52 +70,52 @@ export default function Budgets() {
   };
 
   return (
-    <main className="flex-1 p-8">
-      <div className="mb-6 flex items-center justify-between">
-        <h2 className="text-2xl font-semibold">Budgets</h2>
-        <label className="text-sm">
-          Month{" "}
-          <input
-            type="month"
-            aria-label="Budget month"
-            className="rounded border border-slate-300 px-2 py-1"
-            value={month}
-            onChange={(e) => setMonth(e.target.value)}
-          />
-        </label>
-      </div>
+    <main>
+      <PageHeader
+        title="Budgets"
+        subtitle={`Set a recurring monthly limit per category. Bars show ${month} spending vs budget.`}
+        right={
+          <label className="flex items-center gap-2 text-[13px] font-semibold text-ink2">
+            Month
+            <TextInput
+              type="month"
+              aria-label="Budget month"
+              className="w-[150px]"
+              value={month}
+              onChange={(e) => setMonth(e.target.value)}
+            />
+          </label>
+        }
+      />
 
-      {error && <p className="mb-4 text-sm text-rose-600">{error}</p>}
-      <p className="mb-4 text-sm text-slate-500">
-        Set a recurring monthly limit per category. Bars show {month} spending vs budget.
-      </p>
+      {error && <p className="mb-4 text-sm font-semibold text-spend">{error}</p>}
 
-      <div className="space-y-3">
+      <div className="grid gap-3 md:grid-cols-2">
         {categories.map((c) => {
           const rec = recurringFor(c.id);
           const st = statusFor(c.id);
           const draft = drafts[c.id] ?? (rec ? String(rec.limit) : "");
           return (
-            <div key={c.id} className="rounded-lg border border-slate-200 p-4">
+            <Card key={c.id} className="p-4">
               <div className="flex items-center justify-between gap-4">
-                <span className="flex items-center gap-2 font-medium">
-                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: c.color }} />
+                <span className="flex items-center gap-2 font-bold text-ink">
+                  <Dot color={c.color} size={10} />
                   {c.name}
                 </span>
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="text-slate-400">$</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold text-muted">$</span>
                   <input
                     aria-label={`Budget for ${c.name}`}
                     type="number"
                     min="0"
                     step="1"
-                    className="w-28 rounded border border-slate-300 px-2 py-1"
+                    className="w-24 rounded-xl bg-bg px-3 py-2 text-sm font-semibold text-ink outline-none ring-1 ring-line focus:ring-2 focus:ring-accent/50 tabnum"
                     value={draft}
                     onChange={(e) => setDrafts((d) => ({ ...d, [c.id]: e.target.value }))}
                   />
                   <button
                     aria-label={`Save ${c.name} budget`}
-                    className="rounded bg-slate-900 px-3 py-1 font-medium text-white hover:bg-slate-700"
+                    className="rounded-xl bg-accent px-3.5 py-2 text-[13px] font-bold text-white transition-colors hover:bg-accent-d cursor-pointer"
                     onClick={() => save(c.id)}
                   >
                     Save
@@ -121,24 +123,19 @@ export default function Budgets() {
                 </div>
               </div>
               {st && (
-                <div className="mt-3">
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
-                    <div
-                      className={`h-full ${BAR_COLOR[st.status]}`}
-                      style={{ width: `${Math.min(100, st.pct * 100)}%` }}
-                    />
-                  </div>
-                  <div className="mt-1 flex justify-between text-xs">
-                    <span className="text-slate-500">
+                <div className="mt-3.5">
+                  <ProgressBar pct={st.pct * 100} color={BAR_COLOR[st.status]} />
+                  <div className="mt-1.5 flex justify-between text-xs">
+                    <span className="font-semibold text-muted tabnum">
                       {formatMoney(st.spent)} of {formatMoney(st.limit)}
                     </span>
                     <span
                       className={
                         st.status === "over"
-                          ? "font-medium text-rose-600"
+                          ? "font-bold text-spend"
                           : st.status === "near"
-                            ? "font-medium text-amber-600"
-                            : "text-emerald-700"
+                            ? "font-bold text-amber-500"
+                            : "font-bold text-ok"
                       }
                     >
                       {st.status === "over"
@@ -149,13 +146,13 @@ export default function Budgets() {
                   </div>
                 </div>
               )}
-            </div>
+            </Card>
           );
         })}
         {categories.length === 0 && (
-          <p className="text-slate-400">
-            No categories yet — add some on the Categories page first.
-          </p>
+          <Card className="md:col-span-2">
+            <EmptyState>No categories yet — add some on the Categories page first.</EmptyState>
+          </Card>
         )}
       </div>
     </main>

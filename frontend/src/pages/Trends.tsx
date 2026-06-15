@@ -3,7 +3,6 @@ import {
   Area,
   AreaChart,
   CartesianGrid,
-  Legend,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -12,6 +11,20 @@ import {
 import { Account, listAccounts } from "../api/accounts";
 import { Dashboard, getDashboard } from "../api/dashboard";
 import { formatMoney } from "../components/Money";
+import PageHeader from "../components/PageHeader";
+import { Card, CardHeader, Dot, EmptyState, Select } from "../components/ui";
+import { CHART } from "../theme";
+
+const tooltipStyle = {
+  borderRadius: 12,
+  border: "1px solid var(--line)",
+  background: "var(--surface)",
+  color: "var(--ink)",
+  fontSize: 12,
+  fontWeight: 600,
+  boxShadow: "var(--sh)",
+} as const;
+const axisTick = { fontSize: 12, fill: "var(--muted)", fontWeight: 600 } as const;
 
 export default function Trends() {
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -32,70 +45,94 @@ export default function Trends() {
   const months = data?.by_month ?? [];
 
   return (
-    <main className="flex-1 p-8">
-      <div className="mb-6 flex items-center justify-between">
-        <h2 className="text-2xl font-semibold">Trends</h2>
-        <select
-          aria-label="Account filter"
-          className="rounded border border-slate-300 px-2 py-1 text-sm"
-          value={accountId ?? ""}
-          onChange={(e) => setAccountId(e.target.value ? Number(e.target.value) : undefined)}
-        >
-          <option value="">All accounts</option>
-          {accounts.map((a) => (
-            <option key={a.id} value={a.id}>
-              {a.name}
-            </option>
-          ))}
-        </select>
-      </div>
+    <main>
+      <PageHeader
+        title="Trends"
+        right={
+          <Select
+            aria-label="Account filter"
+            value={accountId ?? ""}
+            onChange={(e) => setAccountId(e.target.value ? Number(e.target.value) : undefined)}
+          >
+            <option value="">All accounts</option>
+            {accounts.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+              </option>
+            ))}
+          </Select>
+        }
+      />
 
-      {error && <p className="mb-4 text-sm text-rose-600">{error}</p>}
+      {error && <p className="mb-4 text-sm font-semibold text-spend">{error}</p>}
 
-      <section className="mb-8 rounded-lg border border-slate-200 p-5">
-        <h3 className="mb-4 font-medium">Monthly spend &amp; income</h3>
+      <Card className="mb-4 p-5">
+        <CardHeader
+          title="Monthly spend & income"
+          meta={
+            <span className="flex items-center gap-4">
+              <span className="flex items-center gap-1.5">
+                <Dot color={CHART.income} /> Income
+              </span>
+              <span className="flex items-center gap-1.5">
+                <Dot color={CHART.spend} /> Spend
+              </span>
+            </span>
+          }
+        />
         <div style={{ width: "100%", height: 320 }}>
           <ResponsiveContainer>
-            <AreaChart data={months}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" fontSize={12} />
-              <YAxis fontSize={12} />
-              <Tooltip formatter={(v: number) => formatMoney(v)} />
-              <Legend />
-              <Area type="monotone" dataKey="spend" stroke="#f43f5e" fill="#fecdd3" name="Spend" />
-              <Area type="monotone" dataKey="income" stroke="#10b981" fill="#a7f3d0" name="Income" />
+            <AreaChart data={months} margin={{ left: -18, right: 6, top: 6 }}>
+              <defs>
+                <linearGradient id="tIncome" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={CHART.income} stopOpacity={0.3} />
+                  <stop offset="100%" stopColor={CHART.income} stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="tSpend" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={CHART.spend} stopOpacity={0.28} />
+                  <stop offset="100%" stopColor={CHART.spend} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid stroke={CHART.grid} vertical={false} />
+              <XAxis dataKey="month" tick={axisTick} axisLine={false} tickLine={false} />
+              <YAxis tick={axisTick} axisLine={false} tickLine={false} width={52} />
+              <Tooltip formatter={(v: number) => formatMoney(v)} contentStyle={tooltipStyle} />
+              <Area type="monotone" dataKey="spend" stroke={CHART.spend} strokeWidth={2.5} fill="url(#tSpend)" name="Spend" />
+              <Area type="monotone" dataKey="income" stroke={CHART.income} strokeWidth={2.5} fill="url(#tIncome)" name="Income" />
             </AreaChart>
           </ResponsiveContainer>
         </div>
-      </section>
+      </Card>
 
-      <table className="w-full text-left text-sm">
-        <thead className="border-b border-slate-200 text-slate-500">
-          <tr>
-            <th scope="col" className="py-2">Month</th>
-            <th scope="col" className="text-right">Spend</th>
-            <th scope="col" className="text-right">Income</th>
-            <th scope="col" className="text-right">Net</th>
-          </tr>
-        </thead>
-        <tbody>
-          {months.map((m) => (
-            <tr key={m.month} className="border-b border-slate-100">
-              <td className="py-2">{m.month}</td>
-              <td className="text-right tabular-nums">{formatMoney(m.spend)}</td>
-              <td className="text-right tabular-nums">{formatMoney(m.income)}</td>
-              <td className="text-right tabular-nums">{formatMoney(m.income - m.spend)}</td>
+      <Card className="overflow-hidden">
+        <table className="w-full text-left text-sm">
+          <thead>
+            <tr className="border-b border-line text-[11.5px] font-bold uppercase tracking-wide text-muted">
+              <th scope="col" className="px-5 py-3">Month</th>
+              <th scope="col" className="px-5 py-3 text-right">Spend</th>
+              <th scope="col" className="px-5 py-3 text-right">Income</th>
+              <th scope="col" className="px-5 py-3 text-right">Net</th>
             </tr>
-          ))}
-          {months.length === 0 && (
-            <tr>
-              <td colSpan={4} className="py-4 text-slate-400">
-                No data yet — import statements to see monthly trends.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {months.map((m) => (
+              <tr key={m.month} className="border-b border-line/70 last:border-0 hover:bg-bg/60">
+                <td className="px-5 py-2.5 font-semibold text-ink tabnum">{m.month}</td>
+                <td className="px-5 py-2.5 text-right tabnum font-semibold text-spend">{formatMoney(m.spend)}</td>
+                <td className="px-5 py-2.5 text-right tabnum font-semibold text-ok">{formatMoney(m.income)}</td>
+                <td className="px-5 py-2.5 text-right tabnum font-bold text-ink">{formatMoney(m.income - m.spend)}</td>
+              </tr>
+            ))}
+            {months.length === 0 && (
+              <tr>
+                <td colSpan={4}>
+                  <EmptyState>No data yet — import statements to see monthly trends.</EmptyState>
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </Card>
     </main>
   );
 }
