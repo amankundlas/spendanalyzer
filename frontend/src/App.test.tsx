@@ -1,22 +1,24 @@
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, expect, test, vi } from "vitest";
+import * as dashboardApi from "./api/dashboard";
+import * as accountsApi from "./api/accounts";
 import App from "./App";
 
+vi.mock("./api/dashboard");
+vi.mock("./api/accounts");
+
 beforeEach(() => {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(() =>
-      Promise.resolve({
-        ok: true,
-        status: 200,
-        json: () => Promise.resolve({ status: "ok" }),
-      }),
-    ),
-  );
+  vi.clearAllMocks();
+  vi.mocked(accountsApi.listAccounts).mockResolvedValue([]);
+  vi.mocked(dashboardApi.getDashboard).mockResolvedValue({
+    totals: { spend: 0, income: 0, net: 0, count: 0 },
+    by_category: [],
+    by_month: [],
+  });
 });
 
-test("renders sidebar and the Overview health status on the home route", async () => {
+test("renders sidebar and the Overview heading on the home route", async () => {
   render(
     <MemoryRouter
       initialEntries={["/"]}
@@ -27,5 +29,4 @@ test("renders sidebar and the Overview health status on the home route", async (
   );
   expect(screen.getByText("Spend Analyzer")).toBeInTheDocument();
   expect(screen.getAllByText("Overview").length).toBeGreaterThan(0);
-  expect(await screen.findByText("ok")).toBeInTheDocument();
 });
