@@ -19,7 +19,7 @@ from app.models import Account, ImportBatch
 from app.schemas import ColumnMapping, DetectedColumns, ParsedRow
 from app.services.csv_import import detect_columns
 from app.services.imports import commit_import, delete_batch, persist_parsed_rows, preview_import
-from app.services.ollama import OllamaExtractor, get_extractor
+from app.services.ollama import ExtractionError, OllamaExtractor, get_extractor
 from app.services.pdf import extract_text, to_parsed_rows
 
 router = APIRouter()
@@ -128,7 +128,17 @@ async def pdf_extract(
         text = extract_text(raw)
     except Exception as exc:  # malformed PDF
         raise HTTPException(status_code=400, detail="could not read PDF") from exc
-    rows = to_parsed_rows(extractor.extract(text))
+    try:
+        rows = to_parsed_rows(extractor.extract(text))
+    except ExtractionError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "The local AI couldn't finish reading this statement "
+                "(it may be too large or the model timed out). Try again, or "
+                "import a CSV export instead."
+            ),
+        ) from exc
     return PdfExtractResult(rows=rows)
 
 
