@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Account, listAccounts } from "../api/accounts";
 import { Category, listCategories } from "../api/categories";
-import { aiCategorize } from "../api/categorize";
+import { aiCategorizeStart, categorizeJob } from "../api/categorize";
 import { applyRules } from "../api/rules";
 import { Transaction, listTransactions, recategorize } from "../api/transactions";
 import Money from "../components/Money";
@@ -100,12 +100,37 @@ export default function Transactions() {
     setMessage(null);
     setAiBusy(true);
     try {
-      const { updated } = await aiCategorize();
-      setMessage(`AI categorized ${updated} transaction(s).`);
-      reload();
+      // Categorization runs in the background (many slow LLM calls). Start the
+      // job, then poll — each poll is a fast request mobile browsers keep alive.
+      const { job_id } = await aiCategorizeStart();
+      let fails = 0;
+      const poll = async () => {
+        try {
+          const job = await categorizeJob(job_id);
+          if (job.status === "done") {
+            setMessage(`AI categorized ${job.updated ?? 0} transaction(s).`);
+            setAiBusy(false);
+            reload();
+            return;
+          }
+          if (job.status === "error") {
+            setError(job.detail ?? "AI categorization failed.");
+            setAiBusy(false);
+            return;
+          }
+          fails = 0;
+        } catch {
+          if (++fails > 5) {
+            setError("Lost the connection during AI categorization. Please try again.");
+            setAiBusy(false);
+            return;
+          }
+        }
+        window.setTimeout(poll, 2500);
+      };
+      poll();
     } catch (e) {
       setError((e as Error).message);
-    } finally {
       setAiBusy(false);
     }
   };

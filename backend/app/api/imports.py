@@ -142,7 +142,7 @@ def _run_pdf_extraction(job_id: str, text: str, extractor: OllamaExtractor) -> N
     except Exception:  # never leave a job stuck "running" on an unexpected error
         jobs.update_job(job_id, status="error", detail="Something went wrong reading the PDF.")
         return
-    jobs.update_job(job_id, status="done", rows=rows)
+    jobs.update_job(job_id, status="done", result=rows)
 
 
 @router.post("/imports/pdf/extract", response_model=PdfJobStart, status_code=status.HTTP_202_ACCEPTED)
@@ -170,7 +170,7 @@ def pdf_job(job_id: str) -> PdfJobOut:
     job = jobs.get_job(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="job not found")
-    return PdfJobOut(status=job["status"], rows=job["rows"], detail=job["detail"])
+    return PdfJobOut(status=job["status"], rows=job["result"], detail=job["detail"])
 
 
 class PdfCommitBody(BaseModel):

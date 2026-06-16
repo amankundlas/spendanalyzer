@@ -21,7 +21,8 @@ _jobs: dict[str, dict[str, Any]] = {}
 def create_job() -> str:
     job_id = uuid.uuid4().hex
     with _lock:
-        _jobs[job_id] = {"status": "pending", "rows": None, "detail": None}
+        # `result` holds the job's payload when done (PDF rows, categorize count…).
+        _jobs[job_id] = {"status": "pending", "result": None, "detail": None}
     return job_id
 
 

@@ -83,10 +83,12 @@ test("Apply rules triggers applyRules and reloads", async () => {
 });
 
 test("Categorize with AI calls the endpoint and shows the count", async () => {
-  vi.mocked(categorizeApi.aiCategorize).mockResolvedValue({ updated: 3 });
+  vi.mocked(categorizeApi.aiCategorizeStart).mockResolvedValue({ job_id: "cat-1" });
+  vi.mocked(categorizeApi.categorizeJob).mockResolvedValue({ status: "done", updated: 3, detail: null });
   render(<Transactions />);
   await screen.findByText("PAYROLL");
   await userEvent.click(screen.getByRole("button", { name: /categorize with ai/i }));
-  await waitFor(() => expect(vi.mocked(categorizeApi.aiCategorize)).toHaveBeenCalled());
+  await waitFor(() => expect(vi.mocked(categorizeApi.aiCategorizeStart)).toHaveBeenCalled());
+  await waitFor(() => expect(vi.mocked(categorizeApi.categorizeJob)).toHaveBeenCalledWith("cat-1"));
   expect(await screen.findByText(/ai categorized 3/i)).toBeInTheDocument();
 });
