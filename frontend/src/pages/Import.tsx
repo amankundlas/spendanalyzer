@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Account, listAccounts } from "../api/accounts";
 import {
   ColumnMapping,
@@ -10,7 +10,8 @@ import {
   deleteBatch,
   listBatches,
   pdfCommit,
-  pdfExtract,
+  pdfExtractStart,
+  pdfJob,
   previewImport,
 } from "../api/imports";
 import PageHeader from "../components/PageHeader";
@@ -33,6 +34,8 @@ export default function Import() {
   const [pdfRows, setPdfRows] = useState<ParsedRow[] | null>(null);
   const [pdfName, setPdfName] = useState("statement.pdf");
   const [pdfBusy, setPdfBusy] = useState(false);
+  // Bumped on every file selection so any in-flight extraction poll is abandoned.
+  const pollToken = useRef(0);
 
   const refreshBatches = (id: number) =>
     listBatches(id).then(setBatches).catch(() => undefined);
@@ -56,6 +59,7 @@ export default function Import() {
     setHeaders([]); // clear any prior file's mapping eagerly
     setMapping(null);
     setPdfRows(null);
+    const myToken = (pollToken.current += 1); // cancel any prior extraction poll
     if (!f) return;
     const isPdf =
       f.name.toLowerCase().endsWith(".pdf") || f.type === "application/pdf";
@@ -63,11 +67,38 @@ export default function Import() {
       setPdfName(f.name);
       setPdfBusy(true);
       try {
-        const { rows } = await pdfExtract(f);
-        setPdfRows(rows);
+        // Extraction runs in the background (it can take minutes on CPU). Start
+        // the job, then poll — each poll is a fast request mobile browsers keep.
+        const { job_id } = await pdfExtractStart(f);
+        let fails = 0;
+        const poll = async () => {
+          if (pollToken.current !== myToken) return; // a newer file took over
+          try {
+            const job = await pdfJob(job_id);
+            if (pollToken.current !== myToken) return;
+            if (job.status === "done") {
+              setPdfRows(job.rows ?? []);
+              setPdfBusy(false);
+              return;
+            }
+            if (job.status === "error") {
+              setError(job.detail ?? "Couldn't read this PDF.");
+              setPdfBusy(false);
+              return;
+            }
+            fails = 0; // a clean poll resets the transient-failure counter
+          } catch {
+            if (++fails > 5) {
+              setError("Lost the connection while reading the PDF. Please try again.");
+              setPdfBusy(false);
+              return;
+            }
+          }
+          window.setTimeout(poll, 2500);
+        };
+        poll();
       } catch (e) {
         setError((e as Error).message);
-      } finally {
         setPdfBusy(false);
       }
       return;
@@ -187,7 +218,7 @@ export default function Import() {
       {message && <p className="mb-4 text-sm font-semibold text-ok">{message}</p>}
       {pdfBusy && (
         <p className="mb-4 text-sm font-semibold text-muted">
-          Extracting transactions from the PDF with the local AI… (this can take a moment)
+          Reading the PDF with the local AI… this can take a minute or two — keep this page open.
         </p>
       )}
 

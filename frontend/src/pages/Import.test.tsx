@@ -28,8 +28,11 @@ beforeEach(() => {
     batch_id: 5, added_count: 1, duplicate_count: 0,
   });
   vi.mocked(importsApi.deleteBatch).mockResolvedValue(undefined);
-  vi.mocked(importsApi.pdfExtract).mockResolvedValue({
+  vi.mocked(importsApi.pdfExtractStart).mockResolvedValue({ job_id: "job-1" });
+  vi.mocked(importsApi.pdfJob).mockResolvedValue({
+    status: "done",
     rows: [{ date: "2026-01-02", description: "WHOLE FOODS", amount_cents: -4599, direction: "debit" }],
+    detail: null,
   });
   vi.mocked(importsApi.pdfCommit).mockResolvedValue({
     batch_id: 8, added_count: 1, duplicate_count: 0,
@@ -93,10 +96,11 @@ test("PDF upload extracts via local AI, reviews, and saves", async () => {
   });
   await userEvent.upload(screen.getByLabelText(/statement file/i), pdf);
 
-  await waitFor(() => expect(vi.mocked(importsApi.pdfExtract)).toHaveBeenCalled());
+  await waitFor(() => expect(vi.mocked(importsApi.pdfExtractStart)).toHaveBeenCalled());
   // the CSV mapping flow must NOT run for a PDF
   expect(vi.mocked(importsApi.analyzeCsv)).not.toHaveBeenCalled();
-  // extracted row shown for review
+  // job polled, then the extracted row shown for review
+  await waitFor(() => expect(vi.mocked(importsApi.pdfJob)).toHaveBeenCalledWith("job-1"));
   expect(await screen.findByText("WHOLE FOODS")).toBeInTheDocument();
 
   await userEvent.click(screen.getByRole("button", { name: /save import/i }));
