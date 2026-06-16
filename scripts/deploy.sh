@@ -25,12 +25,18 @@ ssh "$REMOTE" "set -e
   # be dropped in from the host. Idempotent.
   docker compose -f docker-compose.yml -f docker-compose.minipc.yml exec -T api \\
     chown -R \"\$(id -u):\$(id -g)\" /import || true
-  # Ensure the local LLM model is present (idempotent: 'ollama pull' is a no-op
-  # if already downloaded). The first run fetches ~5GB; later deploys are instant.
+  # Ensure the local LLM models are present (idempotent: 'ollama pull' is a no-op
+  # if already downloaded). First run fetches ~5GB (7B) + ~2GB (3B); later deploys
+  # are instant. The 7B handles categorization; the 3B handles the slower PDF
+  # extraction so it finishes within the request timeout.
   MODEL=\$(grep -E '^OLLAMA_MODEL=' .env | tail -n1 | cut -d= -f2-)
   MODEL=\${MODEL:-qwen2.5:7b-instruct}
-  echo \"Ensuring Ollama model present: \$MODEL\"
-  docker compose -f docker-compose.yml -f docker-compose.minipc.yml exec -T llm ollama pull \"\$MODEL\"
+  EXTRACT_MODEL=\$(grep -E '^OLLAMA_EXTRACT_MODEL=' .env | tail -n1 | cut -d= -f2-)
+  EXTRACT_MODEL=\${EXTRACT_MODEL:-qwen2.5:3b-instruct}
+  for m in \"\$MODEL\" \"\$EXTRACT_MODEL\"; do
+    echo \"Ensuring Ollama model present: \$m\"
+    docker compose -f docker-compose.yml -f docker-compose.minipc.yml exec -T llm ollama pull \"\$m\"
+  done
 "
 
 # Read the published port straight from the remote .env (grep, not source, so a

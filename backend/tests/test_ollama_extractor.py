@@ -77,6 +77,19 @@ def test_extract_raises_on_transport_error(monkeypatch):
         OllamaExtractor("http://llm:11434", "m").extract("some statement text")
 
 
+def test_get_extractor_uses_dedicated_extract_model(monkeypatch):
+    """Extraction must run on ollama_extract_model (fast 3B), not the 7B categorizer model."""
+    from app.config import Settings
+    from app.services import ollama
+
+    monkeypatch.setattr(
+        ollama,
+        "get_settings",
+        lambda: Settings(ollama_model="qwen2.5:7b-instruct", ollama_extract_model="qwen2.5:3b-instruct"),
+    )
+    assert ollama.get_extractor().model == "qwen2.5:3b-instruct"
+
+
 def test_extract_empty_text_makes_no_calls(monkeypatch):
     calls = []
     monkeypatch.setattr(httpx, "post", lambda url, json=None, timeout=None: calls.append(1) or _R({"response": "{}"}))
