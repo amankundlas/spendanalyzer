@@ -17,12 +17,19 @@ from sqlmodel import Session, select
 from app.db import get_session
 from app.models import Account, ImportBatch
 from app.schemas import ColumnMapping, DetectedColumns, ParsedRow
+from app.services import jobs
 from app.services.csv_import import detect_columns
 from app.services.imports import commit_import, delete_batch, persist_parsed_rows, preview_import
 from app.services.ollama import ExtractionError, OllamaExtractor, get_extractor
 from app.services.pdf import extract_text, to_parsed_rows
 
 router = APIRouter()
+
+_EXTRACT_FAIL_MSG = (
+    "The local AI couldn't finish reading this statement "
+    "(it may be too large or the model timed out). Try again, or "
+    "import a CSV export instead."
+)
 
 
 class ImportBatchOut(BaseModel):
@@ -114,32 +121,56 @@ def remove_batch(batch_id: int, session: Session = Depends(get_session)) -> None
     delete_batch(session, batch_id)
 
 
-class PdfExtractResult(BaseModel):
-    rows: list[ParsedRow]
+class PdfJobStart(BaseModel):
+    job_id: str
 
 
-@router.post("/imports/pdf/extract", response_model=PdfExtractResult)
+class PdfJobOut(BaseModel):
+    status: str  # pending | running | done | error
+    rows: list[ParsedRow] | None = None
+    detail: str | None = None
+
+
+def _run_pdf_extraction(job_id: str, text: str, extractor: OllamaExtractor) -> None:
+    """Background worker: slow chunked LLM extraction, updating the job in place."""
+    jobs.update_job(job_id, status="running")
+    try:
+        rows = to_parsed_rows(extractor.extract(text))
+    except ExtractionError:
+        jobs.update_job(job_id, status="error", detail=_EXTRACT_FAIL_MSG)
+        return
+    except Exception:  # never leave a job stuck "running" on an unexpected error
+        jobs.update_job(job_id, status="error", detail="Something went wrong reading the PDF.")
+        return
+    jobs.update_job(job_id, status="done", rows=rows)
+
+
+@router.post("/imports/pdf/extract", response_model=PdfJobStart, status_code=status.HTTP_202_ACCEPTED)
 async def pdf_extract(
     file: UploadFile = File(...),
     extractor: OllamaExtractor = Depends(get_extractor),
-) -> PdfExtractResult:
+) -> PdfJobStart:
+    """Kick off extraction in the background and return a job id immediately.
+
+    Extraction can take minutes on CPU; a synchronous request would be dropped by
+    mobile browsers, so the client polls /imports/pdf/jobs/{job_id} instead.
+    """
     raw = await file.read()
     try:
         text = extract_text(raw)
     except Exception as exc:  # malformed PDF
         raise HTTPException(status_code=400, detail="could not read PDF") from exc
-    try:
-        rows = to_parsed_rows(extractor.extract(text))
-    except ExtractionError as exc:
-        raise HTTPException(
-            status_code=503,
-            detail=(
-                "The local AI couldn't finish reading this statement "
-                "(it may be too large or the model timed out). Try again, or "
-                "import a CSV export instead."
-            ),
-        ) from exc
-    return PdfExtractResult(rows=rows)
+    job_id = jobs.create_job()
+    jobs.submit(_run_pdf_extraction, job_id, text, extractor)
+    return PdfJobStart(job_id=job_id)
+
+
+@router.get("/imports/pdf/jobs/{job_id}", response_model=PdfJobOut)
+def pdf_job(job_id: str) -> PdfJobOut:
+    job = jobs.get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="job not found")
+    return PdfJobOut(status=job["status"], rows=job["rows"], detail=job["detail"])
 
 
 class PdfCommitBody(BaseModel):

@@ -77,11 +77,21 @@ export const listBatches = (accountId: number) =>
 export const deleteBatch = (id: number) =>
   api<void>(`/imports/${id}`, { method: "DELETE" });
 
-export const pdfExtract = (file: File) => {
+export interface PdfJob {
+  status: "pending" | "running" | "done" | "error";
+  rows: ParsedRow[] | null;
+  detail: string | null;
+}
+
+/** Kick off background extraction; returns a job id to poll. */
+export const pdfExtractStart = (file: File) => {
   const fd = new FormData();
   fd.append("file", file);
-  return api<{ rows: ParsedRow[] }>("/imports/pdf/extract", { method: "POST", body: fd });
+  return api<{ job_id: string }>("/imports/pdf/extract", { method: "POST", body: fd });
 };
+
+/** Poll extraction status; when status === "done", `rows` holds the result. */
+export const pdfJob = (jobId: string) => api<PdfJob>(`/imports/pdf/jobs/${jobId}`);
 
 export const pdfCommit = (accountId: number, filename: string, rows: ParsedRow[]) =>
   api<ImportResult>("/imports/pdf/commit", {
