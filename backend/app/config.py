@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     database_path: str = "/data/spendanalyzer.sqlite3"
     ollama_url: str = "http://llm:11434"
     ollama_model: str = "qwen2.5:7b-instruct"
+    # PDF extraction uses a smaller, much faster model — the 7B is too slow on
+    # the minipc's CPU and times out. Categorization keeps using ollama_model.
+    ollama_extract_model: str = "qwen2.5:3b-instruct"
     session_secret: str = ""
     auth_password_hash: str = ""
     watch_dir: str = "/import"

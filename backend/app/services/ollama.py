@@ -160,4 +160,4 @@ class OllamaExtractor:
 
 def get_extractor() -> "OllamaExtractor":
     s = get_settings()
-    return OllamaExtractor(s.ollama_url, s.ollama_model)
+    return OllamaExtractor(s.ollama_url, s.ollama_extract_model)
