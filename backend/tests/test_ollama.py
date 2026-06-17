@@ -55,3 +55,32 @@ def test_categorize_one_handles_null_and_bad_json(monkeypatch):
     cat = OllamaCategorizer("http://llm:11434", "m")
     assert cat.categorize_one("X", "Y", ["Groceries"]) is None
     assert cat.categorize_one("X", "Y", ["Groceries"]) is None
+
+
+def test_categorize_batch_aligns_and_validates(monkeypatch):
+    def fake_post(url, json=None, timeout=None):
+        return _FakeResponse({"response": '{"categories": ["Groceries", "Spaceships", null]}'})
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+    cat = OllamaCategorizer("http://llm:11434", "m")
+    out = cat.categorize_batch([("A", "a"), ("B", "b"), ("C", "c")], ["Groceries", "Dining"])
+    # unknown category ("Spaceships") and null both become None
+    assert out == ["Groceries", None, None]
+
+
+def test_categorize_batch_pads_short_response(monkeypatch):
+    monkeypatch.setattr(
+        httpx, "post",
+        lambda url, json=None, timeout=None: _FakeResponse({"response": '{"categories": ["Groceries"]}'}),
+    )
+    cat = OllamaCategorizer("http://llm:11434", "m")
+    assert cat.categorize_batch([("A", "a"), ("B", "b")], ["Groceries"]) == ["Groceries", None]
+
+
+def test_categorize_batch_handles_bad_json(monkeypatch):
+    monkeypatch.setattr(
+        httpx, "post",
+        lambda url, json=None, timeout=None: _FakeResponse({"response": "not json"}),
+    )
+    cat = OllamaCategorizer("http://llm:11434", "m")
+    assert cat.categorize_batch([("A", "a"), ("B", "b")], ["Groceries"]) == [None, None]

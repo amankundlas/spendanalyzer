@@ -17,11 +17,16 @@ class _FakeCategorizer:
     def __init__(self, mapping):
         self.mapping = mapping  # description substring -> category name
 
-    def categorize_one(self, merchant, description, names):
-        for needle, cat in self.mapping.items():
-            if needle in (description or ""):
-                return cat if cat in names else None
-        return None
+    def categorize_batch(self, items, names):
+        out = []
+        for _merchant, description in items:
+            chosen = None
+            for needle, cat in self.mapping.items():
+                if needle in (description or ""):
+                    chosen = cat if cat in names else None
+                    break
+            out.append(chosen)
+        return out
 
 
 def test_ai_categorize_service_over_imported_txns(client: TestClient, session: Session):
