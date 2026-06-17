@@ -9,9 +9,13 @@ _TIMEOUT = 120.0  # a cold model load + inference can take a while
 # PDF extraction defaults. Statements routinely exceed the model's default 4096-token
 # context, so we (a) pin a larger context window and (b) split the text into small
 # line-based chunks — each call stays fast and well inside the window, and we merge.
+# Chunks are kept small on purpose: the bottleneck is output-token generation on CPU
+# (~6 tok/s), so a chunk with too many transactions produces enough JSON to blow the
+# per-call timeout. Smaller chunks => each call finishes well under the ceiling, and
+# since extraction runs as a background job, the (longer) total time is harmless.
 _EXTRACT_NUM_CTX = 8192
-_EXTRACT_CHUNK_CHARS = 3500
-_EXTRACT_TIMEOUT = 300.0  # CPU inference is slow; give a full statement room to finish
+_EXTRACT_CHUNK_CHARS = 1500
+_EXTRACT_TIMEOUT = 600.0  # generous per-call ceiling (matches nginx); small chunks stay well under it
 
 
 class ExtractionError(RuntimeError):
