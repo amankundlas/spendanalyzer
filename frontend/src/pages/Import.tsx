@@ -34,7 +34,8 @@ export default function Import() {
   const [pdfRows, setPdfRows] = useState<ParsedRow[] | null>(null);
   const [pdfName, setPdfName] = useState("statement.pdf");
   const [pdfBusy, setPdfBusy] = useState(false);
-  // Bumped on every file selection so any in-flight extraction poll is abandoned.
+  const [pdfMethod, setPdfMethod] = useState<"parser" | "ai" | null>(null);
+  // Bumped on every extraction run so any in-flight poll is abandoned.
   const pollToken = useRef(0);
 
   const refreshBatches = (id: number) =>
@@ -51,6 +52,51 @@ export default function Import() {
     if (accountId !== undefined) refreshBatches(accountId);
   }, [accountId]);
 
+  // Start a PDF extraction (background job + poll). mode "auto" tries the fast
+  // text parser first; "ai" forces the LLM (the manual "re-read with AI" path).
+  const runPdfExtraction = async (f: File, mode: "auto" | "ai") => {
+    const myToken = (pollToken.current += 1); // abandon any prior poll
+    setError(null);
+    setMessage(null);
+    setPdfRows(null);
+    setPdfMethod(null);
+    setPdfBusy(true);
+    try {
+      const { job_id } = await pdfExtractStart(f, mode);
+      let fails = 0;
+      const poll = async () => {
+        if (pollToken.current !== myToken) return; // a newer run took over
+        try {
+          const job = await pdfJob(job_id);
+          if (pollToken.current !== myToken) return;
+          if (job.status === "done") {
+            setPdfRows(job.rows ?? []);
+            setPdfMethod(job.method);
+            setPdfBusy(false);
+            return;
+          }
+          if (job.status === "error") {
+            setError(job.detail ?? "Couldn't read this PDF.");
+            setPdfBusy(false);
+            return;
+          }
+          fails = 0; // a clean poll resets the transient-failure counter
+        } catch {
+          if (++fails > 5) {
+            setError("Lost the connection while reading the PDF. Please try again.");
+            setPdfBusy(false);
+            return;
+          }
+        }
+        window.setTimeout(poll, 2500);
+      };
+      poll();
+    } catch (e) {
+      setError((e as Error).message);
+      setPdfBusy(false);
+    }
+  };
+
   const onFile = async (f: File | null) => {
     setFile(f);
     setPreview(null);
@@ -59,48 +105,13 @@ export default function Import() {
     setHeaders([]); // clear any prior file's mapping eagerly
     setMapping(null);
     setPdfRows(null);
-    const myToken = (pollToken.current += 1); // cancel any prior extraction poll
+    pollToken.current += 1; // cancel any prior extraction poll
     if (!f) return;
     const isPdf =
       f.name.toLowerCase().endsWith(".pdf") || f.type === "application/pdf";
     if (isPdf) {
       setPdfName(f.name);
-      setPdfBusy(true);
-      try {
-        // Extraction runs in the background (it can take minutes on CPU). Start
-        // the job, then poll — each poll is a fast request mobile browsers keep.
-        const { job_id } = await pdfExtractStart(f);
-        let fails = 0;
-        const poll = async () => {
-          if (pollToken.current !== myToken) return; // a newer file took over
-          try {
-            const job = await pdfJob(job_id);
-            if (pollToken.current !== myToken) return;
-            if (job.status === "done") {
-              setPdfRows(job.rows ?? []);
-              setPdfBusy(false);
-              return;
-            }
-            if (job.status === "error") {
-              setError(job.detail ?? "Couldn't read this PDF.");
-              setPdfBusy(false);
-              return;
-            }
-            fails = 0; // a clean poll resets the transient-failure counter
-          } catch {
-            if (++fails > 5) {
-              setError("Lost the connection while reading the PDF. Please try again.");
-              setPdfBusy(false);
-              return;
-            }
-          }
-          window.setTimeout(poll, 2500);
-        };
-        poll();
-      } catch (e) {
-        setError((e as Error).message);
-        setPdfBusy(false);
-      }
+      runPdfExtraction(f, "auto");
       return;
     }
     try {
@@ -123,6 +134,7 @@ export default function Import() {
       const result = await pdfCommit(accountId, pdfName, pdfRows);
       setMessage(`Imported ${result.added_count}, skipped ${result.duplicate_count} duplicate(s).`);
       setPdfRows(null);
+      setPdfMethod(null);
       setFile(null);
       setFileKey((k) => k + 1);
       await refreshBatches(accountId);
@@ -218,16 +230,27 @@ export default function Import() {
       {message && <p className="mb-4 text-sm font-semibold text-ok">{message}</p>}
       {pdfBusy && (
         <p className="mb-4 text-sm font-semibold text-muted">
-          Reading the PDF with the local AI… this can take a minute or two — keep this page open.
+          Reading the PDF… usually instant; if it falls back to the local AI this can take a
+          minute or two — keep this page open.
         </p>
       )}
 
       {pdfRows && (
         <Card className="mb-4 p-5">
-          <p className="mb-3 text-sm font-medium text-ink2">
-            <strong className="font-extrabold text-ink">{pdfRows.length}</strong> transaction(s) extracted by the local AI —
-            review, then save. (Nothing is stored until you click Save.)
-          </p>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-medium text-ink2">
+              <strong className="font-extrabold text-ink">{pdfRows.length}</strong> transaction(s){" "}
+              {pdfMethod === "parser"
+                ? "read instantly from the PDF text"
+                : "extracted by the local AI"}{" "}
+              — review, then save. (Nothing is stored until you click Save.)
+            </p>
+            {pdfMethod === "parser" && file && (
+              <Button variant="ghost" onClick={() => runPdfExtraction(file, "ai")}>
+                Re-read with AI
+              </Button>
+            )}
+          </div>
           <div className="overflow-x-auto">
           <table className="w-full min-w-[460px] text-left text-sm">
             <thead>

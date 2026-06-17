@@ -21,7 +21,7 @@ from app.services import jobs
 from app.services.csv_import import detect_columns
 from app.services.imports import commit_import, delete_batch, persist_parsed_rows, preview_import
 from app.services.ollama import ExtractionError, OllamaExtractor, get_extractor
-from app.services.pdf import extract_text, to_parsed_rows
+from app.services.pdf import extract_text, parse_statement_text, to_parsed_rows
 
 router = APIRouter()
 
@@ -128,12 +128,25 @@ class PdfJobStart(BaseModel):
 class PdfJobOut(BaseModel):
     status: str  # pending | running | done | error
     rows: list[ParsedRow] | None = None
+    method: str | None = None  # "parser" (instant) | "ai" (LLM fallback)
     detail: str | None = None
 
 
-def _run_pdf_extraction(job_id: str, text: str, extractor: OllamaExtractor) -> None:
-    """Background worker: slow chunked LLM extraction, updating the job in place."""
+def _run_pdf_extraction(job_id: str, text: str, extractor: OllamaExtractor, mode: str) -> None:
+    """Background worker: deterministic parser first, slow LLM only as a fallback.
+
+    mode="auto" tries the fast text parser and falls back to the LLM only if it
+    finds nothing; mode="ai" forces the LLM (the manual "re-read with AI" path).
+    """
     jobs.update_job(job_id, status="running")
+    if mode != "ai":
+        try:
+            rows = to_parsed_rows(parse_statement_text(text))
+        except Exception:
+            rows = []  # parser hiccup -> just fall through to the LLM
+        if rows:
+            jobs.update_job(job_id, status="done", result={"rows": rows, "method": "parser"})
+            return
     try:
         rows = to_parsed_rows(extractor.extract(text))
     except ExtractionError:
@@ -142,18 +155,20 @@ def _run_pdf_extraction(job_id: str, text: str, extractor: OllamaExtractor) -> N
     except Exception:  # never leave a job stuck "running" on an unexpected error
         jobs.update_job(job_id, status="error", detail="Something went wrong reading the PDF.")
         return
-    jobs.update_job(job_id, status="done", result=rows)
+    jobs.update_job(job_id, status="done", result={"rows": rows, "method": "ai"})
 
 
 @router.post("/imports/pdf/extract", response_model=PdfJobStart, status_code=status.HTTP_202_ACCEPTED)
 async def pdf_extract(
     file: UploadFile = File(...),
+    mode: str = "auto",
     extractor: OllamaExtractor = Depends(get_extractor),
 ) -> PdfJobStart:
     """Kick off extraction in the background and return a job id immediately.
 
-    Extraction can take minutes on CPU; a synchronous request would be dropped by
-    mobile browsers, so the client polls /imports/pdf/jobs/{job_id} instead.
+    The fast text parser handles most statements instantly; the LLM (which can take
+    minutes on CPU) is only a fallback. Either way the client polls
+    /imports/pdf/jobs/{job_id} so a slow run never blocks a mobile request.
     """
     raw = await file.read()
     try:
@@ -161,7 +176,7 @@ async def pdf_extract(
     except Exception as exc:  # malformed PDF
         raise HTTPException(status_code=400, detail="could not read PDF") from exc
     job_id = jobs.create_job()
-    jobs.submit(_run_pdf_extraction, job_id, text, extractor)
+    jobs.submit(_run_pdf_extraction, job_id, text, extractor, mode)
     return PdfJobStart(job_id=job_id)
 
 
@@ -170,7 +185,13 @@ def pdf_job(job_id: str) -> PdfJobOut:
     job = jobs.get_job(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="job not found")
-    return PdfJobOut(status=job["status"], rows=job["result"], detail=job["detail"])
+    result = job["result"] or {}
+    return PdfJobOut(
+        status=job["status"],
+        rows=result.get("rows"),
+        method=result.get("method"),
+        detail=job["detail"],
+    )
 
 
 class PdfCommitBody(BaseModel):
