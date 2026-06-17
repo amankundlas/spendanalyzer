@@ -44,3 +44,6 @@ export const recategorize = (id: number, categoryId: number | null) =>
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ category_id: categoryId }),
   });
+
+export const deleteTransaction = (id: number) =>
+  api<void>(`/transactions/${id}`, { method: "DELETE" });
