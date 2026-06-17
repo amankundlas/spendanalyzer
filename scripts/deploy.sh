@@ -33,7 +33,9 @@ ssh "$REMOTE" "set -e
   MODEL=\${MODEL:-qwen2.5:7b-instruct}
   EXTRACT_MODEL=\$(grep -E '^OLLAMA_EXTRACT_MODEL=' .env | tail -n1 | cut -d= -f2-)
   EXTRACT_MODEL=\${EXTRACT_MODEL:-qwen2.5:3b-instruct}
-  for m in \"\$MODEL\" \"\$EXTRACT_MODEL\"; do
+  CATEGORIZE_MODEL=\$(grep -E '^OLLAMA_CATEGORIZE_MODEL=' .env | tail -n1 | cut -d= -f2-)
+  CATEGORIZE_MODEL=\${CATEGORIZE_MODEL:-qwen2.5:3b-instruct}
+  for m in \$(printf '%s\n' \"\$MODEL\" \"\$EXTRACT_MODEL\" \"\$CATEGORIZE_MODEL\" | sort -u); do
     echo \"Ensuring Ollama model present: \$m\"
     docker compose -f docker-compose.yml -f docker-compose.minipc.yml exec -T llm ollama pull \"\$m\"
   done

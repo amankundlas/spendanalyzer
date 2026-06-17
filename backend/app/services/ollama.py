@@ -17,6 +17,11 @@ _EXTRACT_NUM_CTX = 8192
 _EXTRACT_CHUNK_CHARS = 1500
 _EXTRACT_TIMEOUT = 600.0  # generous per-call ceiling (matches nginx); small chunks stay well under it
 
+# Categorization batches many transactions into one call (output is tiny — one
+# label each — so a roomy context easily fits a batch).
+_CATEGORIZE_NUM_CTX = 8192
+_CATEGORIZE_TIMEOUT = 300.0
+
 
 class ExtractionError(RuntimeError):
     """The local model failed to process a chunk (timeout, 500, connection error).
@@ -53,10 +58,19 @@ class OllamaCategorizer:
     chosen category name (which must be one of the provided names) or None.
     """
 
-    def __init__(self, base_url: str, model: str, keep_alive: str | int = 0):
+    def __init__(
+        self,
+        base_url: str,
+        model: str,
+        keep_alive: str | int = 0,
+        timeout: float = _CATEGORIZE_TIMEOUT,
+        num_ctx: int = _CATEGORIZE_NUM_CTX,
+    ):
         self.base_url = base_url.rstrip("/")
         self.model = model
         self.keep_alive = keep_alive
+        self.timeout = timeout
+        self.num_ctx = num_ctx
 
     def _prompt(self, merchant: str, description: str, names: list[str]) -> str:
         options = ", ".join(names)
@@ -92,10 +106,62 @@ class OllamaCategorizer:
             return None
         return chosen if chosen in names else None
 
+    def _batch_prompt(
+        self, items: list[tuple[str | None, str | None]], names: list[str]
+    ) -> str:
+        options = ", ".join(names)
+        listing = "\n".join(
+            f"{i + 1}. merchant={(m or '')!r} description={(d or '')!r}"
+            for i, (m, d) in enumerate(items)
+        )
+        return (
+            "You categorize bank/credit-card transactions.\n"
+            f"Allowed categories: {options}.\n"
+            f"There are {len(items)} transactions, numbered 1..{len(items)}.\n"
+            'Respond ONLY as JSON: {"categories": [...]} with EXACTLY one entry per '
+            "transaction, in the same order. Each entry is one of the allowed "
+            "categories, or null if none clearly fits.\n"
+            f"Transactions:\n{listing}\n"
+        )
+
+    def categorize_batch(
+        self, items: list[tuple[str | None, str | None]], names: list[str]
+    ) -> list[str | None]:
+        """Categorize many transactions in ONE call. Returns a category (or None)
+        per item, aligned by index. A failure degrades to all-None (those stay
+        uncategorized) rather than raising — the caller can re-run."""
+        if not items:
+            return []
+        try:
+            resp = httpx.post(
+                f"{self.base_url}/api/generate",
+                json={
+                    "model": self.model,
+                    "prompt": self._batch_prompt(items, names),
+                    "format": "json",
+                    "stream": False,
+                    "keep_alive": self.keep_alive,
+                    "options": {"num_ctx": self.num_ctx},
+                },
+                timeout=self.timeout,
+            )
+            resp.raise_for_status()
+            data = json.loads(resp.json().get("response", ""))
+            cats = data.get("categories", [])
+        except (httpx.HTTPError, json.JSONDecodeError, KeyError, ValueError, TypeError):
+            return [None] * len(items)
+        if not isinstance(cats, list):
+            return [None] * len(items)
+        out: list[str | None] = []
+        for i in range(len(items)):
+            choice = cats[i] if i < len(cats) else None
+            out.append(choice if choice in names else None)
+        return out
+
 
 def get_categorizer() -> OllamaCategorizer:
     s = get_settings()
-    return OllamaCategorizer(s.ollama_url, s.ollama_model, keep_alive="60s")
+    return OllamaCategorizer(s.ollama_url, s.ollama_categorize_model, keep_alive="60s")
 
 
 class OllamaExtractor:
