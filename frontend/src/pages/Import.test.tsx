@@ -32,6 +32,7 @@ beforeEach(() => {
   vi.mocked(importsApi.pdfJob).mockResolvedValue({
     status: "done",
     rows: [{ date: "2026-01-02", description: "WHOLE FOODS", amount_cents: -4599, direction: "debit" }],
+    method: "parser",
     detail: null,
   });
   vi.mocked(importsApi.pdfCommit).mockResolvedValue({

@@ -80,14 +80,20 @@ export const deleteBatch = (id: number) =>
 export interface PdfJob {
   status: "pending" | "running" | "done" | "error";
   rows: ParsedRow[] | null;
+  method: "parser" | "ai" | null;
   detail: string | null;
 }
 
-/** Kick off background extraction; returns a job id to poll. */
-export const pdfExtractStart = (file: File) => {
+/**
+ * Kick off background extraction; returns a job id to poll.
+ * mode "auto" (default) tries the fast text parser first, LLM only as fallback;
+ * mode "ai" forces the LLM (the manual "re-read with AI" path).
+ */
+export const pdfExtractStart = (file: File, mode: "auto" | "ai" = "auto") => {
   const fd = new FormData();
   fd.append("file", file);
-  return api<{ job_id: string }>("/imports/pdf/extract", { method: "POST", body: fd });
+  const qs = mode === "ai" ? "?mode=ai" : "";
+  return api<{ job_id: string }>(`/imports/pdf/extract${qs}`, { method: "POST", body: fd });
 };
 
 /** Poll extraction status; when status === "done", `rows` holds the result. */
