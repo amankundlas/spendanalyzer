@@ -1,4 +1,42 @@
-from app.services.pdf import parse_statement_text, to_parsed_rows
+from app.services.pdf import parse_statement_text, reconcile_statement, to_parsed_rows
+
+# A statement whose balance math closes: Previous 1,000.00, New 1,092.34.
+# Charges 150.07 (42.17 + 108.90 - wait) -> see numbers below; net = -92.34.
+_RECON_TEXT = (
+    "Previous Balance              1,000.00\n"
+    "05/14/2026  AMAZON.COM            42.17\n"
+    "05/16/2026  WHOLE FOODS          108.90\n"
+    "05/20/2026  PAYMENT THANK YOU    -58.73\n"
+    "New Balance                   1,092.34\n"
+)
+
+
+def test_reconcile_matches_when_balance_math_closes():
+    rows = to_parsed_rows(parse_statement_text(_RECON_TEXT))
+    recon = reconcile_statement(_RECON_TEXT, rows)
+    assert recon.status == "match"
+    assert recon.captured_count == 3
+    assert recon.captured_charges == 151.07     # 42.17 + 108.90
+    assert recon.captured_credits == 58.73
+    assert recon.previous_balance == 1000.00
+    assert recon.new_balance == 1092.34
+    assert recon.difference == 0.0
+
+
+def test_reconcile_flags_missing_transaction():
+    # Drop a row so the captured net no longer matches the printed balances.
+    rows = to_parsed_rows(parse_statement_text(_RECON_TEXT))[:-1]  # remove the payment
+    recon = reconcile_statement(_RECON_TEXT, rows)
+    assert recon.status == "mismatch"
+    assert recon.difference == 58.73  # the missing payment, to the cent
+
+
+def test_reconcile_unverified_without_printed_balances():
+    text = "05/14/2026  AMAZON.COM   42.17\n05/16/2026  WHOLE FOODS   108.90\n"
+    recon = reconcile_statement(text, to_parsed_rows(parse_statement_text(text)))
+    assert recon.status == "unverified"
+    assert recon.previous_balance is None
+    assert recon.captured_charges == 151.07
 
 
 def test_parse_statement_text_basic_credit_card_lines():

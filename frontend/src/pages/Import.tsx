@@ -5,6 +5,7 @@ import {
   ImportBatch,
   ImportPreview,
   ParsedRow,
+  Reconciliation,
   analyzeCsv,
   commitImport,
   deleteBatch,
@@ -14,8 +15,51 @@ import {
   pdfJob,
   previewImport,
 } from "../api/imports";
+import { formatMoney } from "../components/Money";
 import PageHeader from "../components/PageHeader";
 import { Button, Card, CardHeader, EmptyState, Select } from "../components/ui";
+
+function ReconBanner({ recon }: { recon: Reconciliation }) {
+  const sums = `charges ${formatMoney(recon.captured_charges)}, credits ${formatMoney(recon.captured_credits)}`;
+  if (recon.status === "match") {
+    return (
+      <div className="mb-3 flex items-start gap-2 rounded-xl bg-ok/10 px-3.5 py-2.5 text-[13px] font-semibold text-ok">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 shrink-0">
+          <path d="M20 6 9 17l-5-5" />
+        </svg>
+        <span>
+          Captured all {recon.captured_count} transactions — totals match the statement ({sums}).
+        </span>
+      </div>
+    );
+  }
+  if (recon.status === "mismatch") {
+    return (
+      <div className="mb-3 flex items-start gap-2 rounded-xl bg-amber-500/10 px-3.5 py-2.5 text-[13px] font-semibold text-amber-600">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 shrink-0">
+          <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17h.01" />
+        </svg>
+        <span>
+          About <strong>{formatMoney(Math.abs(recon.difference ?? 0))}</strong> may be unaccounted —
+          the captured total doesn't match the statement's balance change (
+          {formatMoney(recon.previous_balance ?? 0)} → {formatMoney(recon.new_balance ?? 0)}).
+          Some transactions may be missing — try "Re-read with AI" or check the statement.
+        </span>
+      </div>
+    );
+  }
+  return (
+    <div className="mb-3 flex items-start gap-2 rounded-xl bg-track px-3.5 py-2.5 text-[13px] font-semibold text-ink2">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 shrink-0">
+        <circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 7.5h.01" />
+      </svg>
+      <span>
+        Captured {recon.captured_count} transactions ({sums}). Couldn't find the statement's
+        Previous/New balance to auto-verify — compare against your statement before saving.
+      </span>
+    </div>
+  );
+}
 
 export default function Import() {
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -35,6 +79,7 @@ export default function Import() {
   const [pdfName, setPdfName] = useState("statement.pdf");
   const [pdfBusy, setPdfBusy] = useState(false);
   const [pdfMethod, setPdfMethod] = useState<"parser" | "ai" | null>(null);
+  const [pdfRecon, setPdfRecon] = useState<Reconciliation | null>(null);
   // Bumped on every extraction run so any in-flight poll is abandoned.
   const pollToken = useRef(0);
 
@@ -60,6 +105,7 @@ export default function Import() {
     setMessage(null);
     setPdfRows(null);
     setPdfMethod(null);
+    setPdfRecon(null);
     setPdfBusy(true);
     try {
       const { job_id } = await pdfExtractStart(f, mode);
@@ -72,6 +118,7 @@ export default function Import() {
           if (job.status === "done") {
             setPdfRows(job.rows ?? []);
             setPdfMethod(job.method);
+            setPdfRecon(job.reconciliation);
             setPdfBusy(false);
             return;
           }
@@ -135,6 +182,7 @@ export default function Import() {
       setMessage(`Imported ${result.added_count}, skipped ${result.duplicate_count} duplicate(s).`);
       setPdfRows(null);
       setPdfMethod(null);
+      setPdfRecon(null);
       setFile(null);
       setFileKey((k) => k + 1);
       await refreshBatches(accountId);
@@ -251,6 +299,7 @@ export default function Import() {
               </Button>
             )}
           </div>
+          {pdfRecon && <ReconBanner recon={pdfRecon} />}
           <div className="overflow-x-auto">
           <table className="w-full min-w-[460px] text-left text-sm">
             <thead>

@@ -77,10 +77,23 @@ export const listBatches = (accountId: number) =>
 export const deleteBatch = (id: number) =>
   api<void>(`/imports/${id}`, { method: "DELETE" });
 
+export interface Reconciliation {
+  status: "match" | "mismatch" | "unverified";
+  captured_count: number;
+  captured_charges: number;
+  captured_credits: number;
+  captured_net: number;
+  previous_balance: number | null;
+  new_balance: number | null;
+  statement_net: number | null;
+  difference: number | null;
+}
+
 export interface PdfJob {
   status: "pending" | "running" | "done" | "error";
   rows: ParsedRow[] | null;
   method: "parser" | "ai" | null;
+  reconciliation: Reconciliation | null;
   detail: string | null;
 }
 

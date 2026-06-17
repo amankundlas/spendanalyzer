@@ -120,6 +120,9 @@ def test_pdf_extract_uses_parser_without_llm(client: TestClient, monkeypatch):
     assert len(job["rows"]) == 2
     by_desc = {r["description"]: r for r in job["rows"]}
     assert by_desc["WHOLEFDS MARKET #7"]["amount_cents"] == -4217  # charge -> negative
+    # reconciliation rides along (this fixture has no printed balances -> unverified)
+    assert job["reconciliation"]["status"] == "unverified"
+    assert job["reconciliation"]["captured_count"] == 2
 
 
 def test_pdf_extract_falls_back_to_ai_when_parser_finds_nothing(client: TestClient, monkeypatch):
