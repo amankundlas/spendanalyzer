@@ -3,7 +3,7 @@ import { Account, listAccounts } from "../api/accounts";
 import { Category, listCategories } from "../api/categories";
 import { aiCategorizeStart, categorizeJob } from "../api/categorize";
 import { applyRules } from "../api/rules";
-import { Transaction, listTransactions, recategorize } from "../api/transactions";
+import { Transaction, deleteTransaction, listTransactions, recategorize } from "../api/transactions";
 import Money from "../components/Money";
 import PageHeader from "../components/PageHeader";
 import { Badge, Button, Card, EmptyState, Select, TextInput } from "../components/ui";
@@ -77,6 +77,16 @@ export default function Transactions() {
   const onRecategorize = async (id: number, value: string) => {
     try {
       await recategorize(id, value ? Number(value) : null);
+      reload();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+
+  const onDelete = async (t: Transaction) => {
+    if (!window.confirm(`Delete "${t.description}"? This can't be undone.`)) return;
+    try {
+      await deleteTransaction(t.id);
       reload();
     } catch (e) {
       setError((e as Error).message);
@@ -248,6 +258,9 @@ export default function Transactions() {
               <th scope="col" className="px-3 py-3">Account</th>
               <th scope="col" className="px-3 py-3">Category</th>
               <th scope="col" className="px-5 py-3 text-right">Amount</th>
+              <th scope="col" className="px-3 py-3 text-right">
+                <span className="sr-only">Actions</span>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -274,11 +287,23 @@ export default function Transactions() {
                 <td className="px-5 py-2.5 text-right">
                   <Money amount={t.amount} />
                 </td>
+                <td className="px-3 py-2.5 text-right">
+                  <button
+                    aria-label={`Delete ${t.description}`}
+                    title="Delete transaction"
+                    className="text-muted transition-colors hover:text-spend cursor-pointer"
+                    onClick={() => onDelete(t)}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6" />
+                    </svg>
+                  </button>
+                </td>
               </tr>
             ))}
             {!loading && items.length === 0 && (
               <tr>
-                <td colSpan={5}>
+                <td colSpan={6}>
                   <EmptyState>No transactions match these filters.</EmptyState>
                 </td>
               </tr>

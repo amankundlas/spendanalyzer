@@ -15,6 +15,7 @@ vi.mock("../api/rules");
 vi.mock("../api/transactions");
 
 beforeEach(() => {
+  vi.clearAllMocks(); // reset call history so cross-test assertions stay isolated
   vi.mocked(accountsApi.listAccounts).mockResolvedValue([
     { id: 1, name: "Amex Gold", type: "credit", institution: null, currency: "USD", archived: false },
   ]);
@@ -71,6 +72,26 @@ test("recategorizes a transaction inline", async () => {
   await waitFor(() =>
     expect(vi.mocked(txApi.recategorize)).toHaveBeenCalledWith(10, 3),
   );
+});
+
+test("deletes a transaction after confirmation", async () => {
+  vi.mocked(txApi.deleteTransaction).mockResolvedValue(undefined);
+  const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+  render(<Transactions />);
+  await screen.findByText("PAYROLL");
+  await userEvent.click(screen.getByLabelText(/delete PAYROLL/i));
+  await waitFor(() => expect(vi.mocked(txApi.deleteTransaction)).toHaveBeenCalledWith(10));
+  confirm.mockRestore();
+});
+
+test("does not delete when confirmation is cancelled", async () => {
+  vi.mocked(txApi.deleteTransaction).mockResolvedValue(undefined);
+  const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+  render(<Transactions />);
+  await screen.findByText("PAYROLL");
+  await userEvent.click(screen.getByLabelText(/delete PAYROLL/i));
+  expect(vi.mocked(txApi.deleteTransaction)).not.toHaveBeenCalled();
+  confirm.mockRestore();
 });
 
 test("Apply rules triggers applyRules and reloads", async () => {

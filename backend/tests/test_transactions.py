@@ -63,3 +63,19 @@ def test_recategorize_and_filter(client: TestClient):
     assert body["total"] == 1
     body = client.get(f"/api/transactions?account_id={acct}&uncategorized=true").json()
     assert body["total"] == 2  # the other two seeded rows remain uncategorized
+
+
+def test_delete_transaction(client: TestClient):
+    acct = _seed(client)
+    txn_id = client.get(f"/api/transactions?account_id={acct}").json()["items"][0]["id"]
+
+    resp = client.delete(f"/api/transactions/{txn_id}")
+    assert resp.status_code == 204
+
+    body = client.get(f"/api/transactions?account_id={acct}").json()
+    assert body["total"] == 2
+    assert all(t["id"] != txn_id for t in body["items"])
+
+
+def test_delete_missing_transaction_returns_404(client: TestClient):
+    assert client.delete("/api/transactions/999999").status_code == 404

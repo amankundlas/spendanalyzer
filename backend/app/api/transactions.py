@@ -1,6 +1,6 @@
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlmodel import Session, func, select
 
@@ -111,3 +111,14 @@ def recategorize(
     session.commit()
     session.refresh(txn)
     return _out(txn, name)
+
+
+@router.delete("/transactions/{transaction_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_transaction(
+    transaction_id: int, session: Session = Depends(get_session)
+) -> None:
+    txn = session.get(Transaction, transaction_id)
+    if txn is None:
+        raise HTTPException(status_code=404, detail="transaction not found")
+    session.delete(txn)
+    session.commit()
