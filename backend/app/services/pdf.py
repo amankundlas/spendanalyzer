@@ -5,7 +5,7 @@ import pdfplumber
 from dateutil import parser as dateparser
 
 from app.money import parse_amount_to_cents
-from app.schemas import ParsedRow
+from app.schemas import ParsedRow, Reconciliation
 
 
 def extract_text(data: bytes) -> str:
@@ -67,6 +67,66 @@ def parse_statement_text(text: str) -> list[dict]:
             }
         )
     return rows
+
+
+# A money token anywhere in a line (for summary/balance lines).
+_MONEY_TOKEN = re.compile(r"\(?-?\$?\s?\d{1,3}(?:,\d{3})*\.\d{2}\)?", re.IGNORECASE)
+
+
+def _find_balance(text: str, label: str) -> int | None:
+    """Return the cents value on the first line matching `label`, or None.
+
+    Uses the last money token on the line (e.g. "Previous Balance ... 1,000.00").
+    A trailing "CR" marks a credit balance (negative amount owed).
+    """
+    label_re = re.compile(label, re.IGNORECASE)
+    for line in text.splitlines():
+        if not label_re.search(line):
+            continue
+        tokens = list(_MONEY_TOKEN.finditer(line))
+        if not tokens:
+            continue
+        last = tokens[-1]
+        try:
+            cents = parse_amount_to_cents(last.group(0))
+        except ValueError:
+            continue
+        if line[last.end() :].lstrip()[:2].upper() == "CR":
+            cents = -abs(cents)
+        return cents
+    return None
+
+
+def reconcile_statement(text: str, rows: list[ParsedRow]) -> Reconciliation:
+    """Cross-check captured rows against the statement's printed balances.
+
+    Balance identity (our sign convention: charges negative, credits positive):
+        Previous Balance − New Balance  ==  sum of all captured amounts (net)
+    A match means nothing was missed; a mismatch reports the unaccounted net.
+    """
+    charges_cents = sum(-r.amount_cents for r in rows if r.amount_cents < 0)
+    credits_cents = sum(r.amount_cents for r in rows if r.amount_cents > 0)
+    net_cents = sum(r.amount_cents for r in rows)
+
+    recon = Reconciliation(
+        status="unverified",
+        captured_count=len(rows),
+        captured_charges=round(charges_cents / 100, 2),
+        captured_credits=round(credits_cents / 100, 2),
+        captured_net=round(net_cents / 100, 2),
+    )
+
+    previous = _find_balance(text, r"previous\s+balance")
+    new = _find_balance(text, r"new\s+balance")
+    if previous is not None and new is not None:
+        statement_net = previous - new
+        diff = statement_net - net_cents
+        recon.previous_balance = round(previous / 100, 2)
+        recon.new_balance = round(new / 100, 2)
+        recon.statement_net = round(statement_net / 100, 2)
+        recon.difference = round(diff / 100, 2)
+        recon.status = "match" if diff == 0 else "mismatch"
+    return recon
 
 
 def to_parsed_rows(raw: list[dict]) -> list[ParsedRow]:

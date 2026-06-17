@@ -33,6 +33,17 @@ beforeEach(() => {
     status: "done",
     rows: [{ date: "2026-01-02", description: "WHOLE FOODS", amount_cents: -4599, direction: "debit" }],
     method: "parser",
+    reconciliation: {
+      status: "unverified",
+      captured_count: 1,
+      captured_charges: 45.99,
+      captured_credits: 0,
+      captured_net: -45.99,
+      previous_balance: null,
+      new_balance: null,
+      statement_net: null,
+      difference: null,
+    },
     detail: null,
   });
   vi.mocked(importsApi.pdfCommit).mockResolvedValue({
@@ -113,4 +124,31 @@ test("PDF upload extracts via local AI, reviews, and saves", async () => {
     ),
   );
   expect(await screen.findByText(/imported 1/i)).toBeInTheDocument();
+});
+
+test("PDF review shows a reconciliation banner confirming everything was captured", async () => {
+  vi.mocked(importsApi.pdfJob).mockResolvedValue({
+    status: "done",
+    rows: [{ date: "2026-01-02", description: "WHOLE FOODS", amount_cents: -4599, direction: "debit" }],
+    method: "parser",
+    reconciliation: {
+      status: "match",
+      captured_count: 1,
+      captured_charges: 45.99,
+      captured_credits: 0,
+      captured_net: -45.99,
+      previous_balance: 100,
+      new_balance: 145.99,
+      statement_net: -45.99,
+      difference: 0,
+    },
+    detail: null,
+  });
+  render(<Import />);
+  await screen.findByText("Amex Gold");
+  const pdf = new File([new Uint8Array([0x25, 0x50, 0x44, 0x46])], "stmt.pdf", {
+    type: "application/pdf",
+  });
+  await userEvent.upload(screen.getByLabelText(/statement file/i), pdf);
+  expect(await screen.findByText(/totals match the statement/i)).toBeInTheDocument();
 });

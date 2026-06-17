@@ -26,6 +26,25 @@ class ParsedRow(BaseModel):
     direction: str  # "debit" | "credit"
 
 
+class Reconciliation(BaseModel):
+    """Cross-check of captured transactions against the statement's printed totals.
+
+    Uses the balance identity: (Previous Balance − New Balance) should equal the
+    net of all captured transactions (credits positive, charges negative). A match
+    means everything was captured; a mismatch reports how much is unaccounted.
+    """
+
+    status: str  # "match" | "mismatch" | "unverified"
+    captured_count: int
+    captured_charges: float  # total money out (magnitude, dollars)
+    captured_credits: float  # total money in (magnitude, dollars)
+    captured_net: float      # credits − charges (dollars)
+    previous_balance: float | None = None
+    new_balance: float | None = None
+    statement_net: float | None = None   # previous − new (expected captured_net)
+    difference: float | None = None       # statement_net − captured_net (unaccounted)
+
+
 class ImportPreview(BaseModel):
     rows: list[ParsedRow]
     added_count: int

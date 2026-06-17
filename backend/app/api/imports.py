@@ -16,12 +16,12 @@ from sqlmodel import Session, select
 
 from app.db import get_session
 from app.models import Account, ImportBatch
-from app.schemas import ColumnMapping, DetectedColumns, ParsedRow
+from app.schemas import ColumnMapping, DetectedColumns, ParsedRow, Reconciliation
 from app.services import jobs
 from app.services.csv_import import detect_columns
 from app.services.imports import commit_import, delete_batch, persist_parsed_rows, preview_import
 from app.services.ollama import ExtractionError, OllamaExtractor, get_extractor
-from app.services.pdf import extract_text, parse_statement_text, to_parsed_rows
+from app.services.pdf import extract_text, parse_statement_text, reconcile_statement, to_parsed_rows
 
 router = APIRouter()
 
@@ -129,6 +129,7 @@ class PdfJobOut(BaseModel):
     status: str  # pending | running | done | error
     rows: list[ParsedRow] | None = None
     method: str | None = None  # "parser" (instant) | "ai" (LLM fallback)
+    reconciliation: Reconciliation | None = None
     detail: str | None = None
 
 
@@ -137,25 +138,34 @@ def _run_pdf_extraction(job_id: str, text: str, extractor: OllamaExtractor, mode
 
     mode="auto" tries the fast text parser and falls back to the LLM only if it
     finds nothing; mode="ai" forces the LLM (the manual "re-read with AI" path).
+    Either way, captured rows are reconciled against the statement's printed totals.
     """
     jobs.update_job(job_id, status="running")
+    rows: list[ParsedRow] | None = None
+    method = None
     if mode != "ai":
         try:
-            rows = to_parsed_rows(parse_statement_text(text))
+            parsed = to_parsed_rows(parse_statement_text(text))
         except Exception:
-            rows = []  # parser hiccup -> just fall through to the LLM
-        if rows:
-            jobs.update_job(job_id, status="done", result={"rows": rows, "method": "parser"})
+            parsed = []  # parser hiccup -> just fall through to the LLM
+        if parsed:
+            rows, method = parsed, "parser"
+    if rows is None:
+        try:
+            rows = to_parsed_rows(extractor.extract(text))
+            method = "ai"
+        except ExtractionError:
+            jobs.update_job(job_id, status="error", detail=_EXTRACT_FAIL_MSG)
             return
-    try:
-        rows = to_parsed_rows(extractor.extract(text))
-    except ExtractionError:
-        jobs.update_job(job_id, status="error", detail=_EXTRACT_FAIL_MSG)
-        return
-    except Exception:  # never leave a job stuck "running" on an unexpected error
-        jobs.update_job(job_id, status="error", detail="Something went wrong reading the PDF.")
-        return
-    jobs.update_job(job_id, status="done", result={"rows": rows, "method": "ai"})
+        except Exception:  # never leave a job stuck "running" on an unexpected error
+            jobs.update_job(job_id, status="error", detail="Something went wrong reading the PDF.")
+            return
+    reconciliation = reconcile_statement(text, rows)
+    jobs.update_job(
+        job_id,
+        status="done",
+        result={"rows": rows, "method": method, "reconciliation": reconciliation},
+    )
 
 
 @router.post("/imports/pdf/extract", response_model=PdfJobStart, status_code=status.HTTP_202_ACCEPTED)
@@ -190,6 +200,7 @@ def pdf_job(job_id: str) -> PdfJobOut:
         status=job["status"],
         rows=result.get("rows"),
         method=result.get("method"),
+        reconciliation=result.get("reconciliation"),
         detail=job["detail"],
     )
 
