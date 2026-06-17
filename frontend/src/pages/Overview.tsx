@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Area,
   AreaChart,
@@ -24,6 +25,32 @@ function greet(): string {
   return "Good evening";
 }
 
+/** First/last day of a "YYYY-MM" month, as YYYY-MM-DD. */
+function monthRange(month: string): { start: string; end: string } {
+  const [y, m] = month.split("-").map(Number);
+  const last = new Date(y, m, 0).getDate(); // day 0 of next month = last day of this one
+  return { start: `${month}-01`, end: `${month}-${String(last).padStart(2, "0")}` };
+}
+
+function monthLabel(month: string): string {
+  const [y, m] = month.split("-").map(Number);
+  return new Date(y, m - 1, 1).toLocaleString("en-US", { month: "long", year: "numeric" });
+}
+
+/** Deep link to Transactions filtered by a category (and the current account/month). */
+function txnHref(categoryId: number | null, accountId?: number, month?: string): string {
+  const p = new URLSearchParams();
+  if (categoryId === null) p.set("uncategorized", "true");
+  else p.set("category_id", String(categoryId));
+  if (accountId !== undefined) p.set("account_id", String(accountId));
+  if (month) {
+    const { start, end } = monthRange(month);
+    p.set("start", start);
+    p.set("end", end);
+  }
+  return `/transactions?${p.toString()}`;
+}
+
 const KPI = [
   { key: "spend", label: "Spent", tint: "var(--spend)" },
   { key: "income", label: "Income", tint: "var(--ok)" },
@@ -32,8 +59,11 @@ const KPI = [
 ] as const;
 
 export default function Overview() {
+  const navigate = useNavigate();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [accountId, setAccountId] = useState<number | undefined>(undefined);
+  const [month, setMonth] = useState(""); // "" = all time
+  const [months, setMonths] = useState<string[]>([]);
   const [data, setData] = useState<Dashboard | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -41,16 +71,25 @@ export default function Overview() {
     listAccounts(true).then(setAccounts).catch(() => undefined);
   }, []);
 
+  // Available months for the picker (all-time for the current account).
   useEffect(() => {
     getDashboard({ account_id: accountId })
+      .then((d) => setMonths(d.by_month.map((m) => m.month)))
+      .catch(() => setMonths([]));
+  }, [accountId]);
+
+  useEffect(() => {
+    const range = month ? monthRange(month) : {};
+    getDashboard({ account_id: accountId, ...range })
       .then(setData)
       .catch((e) => setError((e as Error).message));
-  }, [accountId]);
+  }, [accountId, month]);
 
   const pieData = useMemo(
     () =>
       (data?.by_category ?? []).map((c) => ({
         name: c.category_name,
+        category_id: c.category_id,
         value: c.spend,
         color: c.color ?? CHART.fallback,
       })),
@@ -72,18 +111,32 @@ export default function Overview() {
         }
         subtitle="Here's how your money moved."
         right={
-          <Select
-            aria-label="Account filter"
-            value={accountId ?? ""}
-            onChange={(e) => setAccountId(e.target.value ? Number(e.target.value) : undefined)}
-          >
-            <option value="">All accounts</option>
-            {accounts.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}
-              </option>
-            ))}
-          </Select>
+          <>
+            <Select
+              aria-label="Month filter"
+              value={month}
+              onChange={(e) => setMonth(e.target.value)}
+            >
+              <option value="">All time</option>
+              {[...months].reverse().map((m) => (
+                <option key={m} value={m}>
+                  {monthLabel(m)}
+                </option>
+              ))}
+            </Select>
+            <Select
+              aria-label="Account filter"
+              value={accountId ?? ""}
+              onChange={(e) => setAccountId(e.target.value ? Number(e.target.value) : undefined)}
+            >
+              <option value="">All accounts</option>
+              {accounts.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+            </Select>
+          </>
         }
       />
 
@@ -118,6 +171,10 @@ export default function Overview() {
                   outerRadius={92}
                   paddingAngle={2}
                   stroke="none"
+                  style={{ cursor: "pointer" }}
+                  onClick={(slice: { category_id?: number | null }) =>
+                    navigate(txnHref(slice.category_id ?? null, accountId, month))
+                  }
                 >
                   {pieData.map((d, i) => (
                     <Cell key={i} fill={d.color} />
@@ -136,17 +193,19 @@ export default function Overview() {
               </span>
             </div>
           </div>
-          <ul className="mt-3 space-y-1.5">
+          <ul className="mt-3 space-y-0.5">
             {(data?.by_category ?? []).map((c) => (
-              <li
-                key={`${c.category_id}-${c.category_name}`}
-                className="flex items-center justify-between text-[13px]"
-              >
-                <span className="flex items-center gap-2 font-semibold text-ink2">
-                  <Dot color={c.color ?? CHART.fallback} />
-                  {c.category_name}
-                </span>
-                <span className="tabnum font-bold text-ink">{formatMoney(c.spend)}</span>
+              <li key={`${c.category_id}-${c.category_name}`}>
+                <Link
+                  to={txnHref(c.category_id, accountId, month)}
+                  className="-mx-2 flex items-center justify-between rounded-lg px-2 py-1 text-[13px] transition-colors hover:bg-bg/70"
+                >
+                  <span className="flex items-center gap-2 font-semibold text-ink2">
+                    <Dot color={c.color ?? CHART.fallback} />
+                    {c.category_name}
+                  </span>
+                  <span className="tabnum font-bold text-ink">{formatMoney(c.spend)}</span>
+                </Link>
               </li>
             ))}
             {(data?.by_category ?? []).length === 0 && (

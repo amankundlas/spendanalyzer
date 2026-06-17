@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Account, listAccounts } from "../api/accounts";
 import { Category, listCategories } from "../api/categories";
 import { aiCategorizeStart, categorizeJob } from "../api/categorize";
@@ -11,14 +12,22 @@ import { Badge, Button, Card, EmptyState, Select, TextInput } from "../component
 const PAGE = 100;
 
 export default function Transactions() {
+  // Deep links (e.g. from the dashboard) seed the initial filters.
+  const [params] = useSearchParams();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [accountId, setAccountId] = useState<number | undefined>(undefined);
+  const [accountId, setAccountId] = useState<number | undefined>(() => {
+    const v = params.get("account_id");
+    return v ? Number(v) : undefined;
+  });
   const [search, setSearch] = useState("");
-  const [start, setStart] = useState("");
-  const [end, setEnd] = useState("");
-  const [catFilter, setCatFilter] = useState<number | "">("");
-  const [uncategorized, setUncategorized] = useState(false);
+  const [start, setStart] = useState(() => params.get("start") ?? "");
+  const [end, setEnd] = useState(() => params.get("end") ?? "");
+  const [catFilter, setCatFilter] = useState<number | "">(() => {
+    const v = params.get("category_id");
+    return v ? Number(v) : "";
+  });
+  const [uncategorized, setUncategorized] = useState(() => params.get("uncategorized") === "true");
   const [items, setItems] = useState<Transaction[]>([]);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);

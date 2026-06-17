@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, expect, test, vi } from "vitest";
 import * as accountsApi from "../api/accounts";
 import * as categoriesApi from "../api/categories";
@@ -13,6 +14,13 @@ vi.mock("../api/categories");
 vi.mock("../api/categorize");
 vi.mock("../api/rules");
 vi.mock("../api/transactions");
+
+const renderAt = (path = "/transactions") =>
+  render(
+    <MemoryRouter initialEntries={[path]}>
+      <Transactions />
+    </MemoryRouter>,
+  );
 
 beforeEach(() => {
   vi.clearAllMocks(); // reset call history so cross-test assertions stay isolated
@@ -39,7 +47,7 @@ beforeEach(() => {
 });
 
 test("renders transactions and applies a search filter", async () => {
-  render(<Transactions />);
+  renderAt();
   expect(await screen.findByText("PAYROLL")).toBeInTheDocument();
   expect(screen.getByText("$1,500.00")).toBeInTheDocument();
   // account_id -> name cross-reference renders in the row (would show "#1" if
@@ -55,7 +63,7 @@ test("renders transactions and applies a search filter", async () => {
 });
 
 test("filtering by account re-queries with account_id", async () => {
-  render(<Transactions />);
+  renderAt();
   await screen.findByText("PAYROLL");
   await userEvent.selectOptions(screen.getByLabelText("Account filter"), "1");
   await waitFor(() =>
@@ -66,7 +74,7 @@ test("filtering by account re-queries with account_id", async () => {
 });
 
 test("recategorizes a transaction inline", async () => {
-  render(<Transactions />);
+  renderAt();
   await screen.findByText("PAYROLL");
   await userEvent.selectOptions(screen.getByLabelText(/category for PAYROLL/i), "3");
   await waitFor(() =>
@@ -77,7 +85,7 @@ test("recategorizes a transaction inline", async () => {
 test("deletes a transaction after confirmation", async () => {
   vi.mocked(txApi.deleteTransaction).mockResolvedValue(undefined);
   const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
-  render(<Transactions />);
+  renderAt();
   await screen.findByText("PAYROLL");
   await userEvent.click(screen.getByLabelText(/delete PAYROLL/i));
   await waitFor(() => expect(vi.mocked(txApi.deleteTransaction)).toHaveBeenCalledWith(10));
@@ -87,7 +95,7 @@ test("deletes a transaction after confirmation", async () => {
 test("does not delete when confirmation is cancelled", async () => {
   vi.mocked(txApi.deleteTransaction).mockResolvedValue(undefined);
   const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
-  render(<Transactions />);
+  renderAt();
   await screen.findByText("PAYROLL");
   await userEvent.click(screen.getByLabelText(/delete PAYROLL/i));
   expect(vi.mocked(txApi.deleteTransaction)).not.toHaveBeenCalled();
@@ -96,7 +104,7 @@ test("does not delete when confirmation is cancelled", async () => {
 
 test("Apply rules triggers applyRules and reloads", async () => {
   vi.mocked(rulesApi.applyRules).mockResolvedValue({ updated: 2 });
-  render(<Transactions />);
+  renderAt();
   await screen.findByText("PAYROLL");
   await userEvent.click(screen.getByRole("button", { name: /apply rules/i }));
   await waitFor(() => expect(vi.mocked(rulesApi.applyRules)).toHaveBeenCalled());
@@ -106,10 +114,28 @@ test("Apply rules triggers applyRules and reloads", async () => {
 test("Categorize with AI calls the endpoint and shows the count", async () => {
   vi.mocked(categorizeApi.aiCategorizeStart).mockResolvedValue({ job_id: "cat-1" });
   vi.mocked(categorizeApi.categorizeJob).mockResolvedValue({ status: "done", updated: 3, detail: null });
-  render(<Transactions />);
+  renderAt();
   await screen.findByText("PAYROLL");
   await userEvent.click(screen.getByRole("button", { name: /categorize with ai/i }));
   await waitFor(() => expect(vi.mocked(categorizeApi.aiCategorizeStart)).toHaveBeenCalled());
   await waitFor(() => expect(vi.mocked(categorizeApi.categorizeJob)).toHaveBeenCalledWith("cat-1"));
   expect(await screen.findByText(/ai categorized 3/i)).toBeInTheDocument();
+});
+
+test("seeds filters from the URL (deep link from the dashboard)", async () => {
+  renderAt("/transactions?category_id=3&start=2026-05-01&end=2026-05-31");
+  await waitFor(() =>
+    expect(vi.mocked(txApi.listTransactions)).toHaveBeenCalledWith(
+      expect.objectContaining({ category_id: 3, start: "2026-05-01", end: "2026-05-31" }),
+    ),
+  );
+});
+
+test("seeds the uncategorized filter from the URL", async () => {
+  renderAt("/transactions?uncategorized=true");
+  await waitFor(() =>
+    expect(vi.mocked(txApi.listTransactions)).toHaveBeenCalledWith(
+      expect.objectContaining({ uncategorized: true }),
+    ),
+  );
 });
