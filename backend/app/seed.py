@@ -15,7 +15,8 @@ DEFAULT_CATEGORIES: list[tuple[str, str]] = [
     ("Subscriptions", "#6366f1"),
     ("Income", "#10b981"),
     ("Transfers", "#64748b"),
-    ("Uncategorized", "#94a3b8"),
+    # NB: no "Uncategorized" category — transactions with category_id = NULL ARE
+    # the uncategorized bucket (the dashboard labels them "Uncategorized").
 ]
 
 

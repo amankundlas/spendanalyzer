@@ -63,27 +63,35 @@ export default function Overview() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [accountId, setAccountId] = useState<number | undefined>(undefined);
   const [month, setMonth] = useState(""); // "" = all time
-  const [months, setMonths] = useState<string[]>([]);
-  const [data, setData] = useState<Dashboard | null>(null);
+  const [allData, setAllData] = useState<Dashboard | null>(null); // all-time: month list + cash-flow trend
+  const [data, setData] = useState<Dashboard | null>(null); // scoped to the selected month
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     listAccounts(true).then(setAccounts).catch(() => undefined);
   }, []);
 
-  // Available months for the picker (all-time for the current account).
+  // All-time view (for the account): drives the month picker, the cash-flow
+  // trend, and defaults the page to the most recent month with data.
   useEffect(() => {
     getDashboard({ account_id: accountId })
-      .then((d) => setMonths(d.by_month.map((m) => m.month)))
-      .catch(() => setMonths([]));
+      .then((d) => {
+        setAllData(d);
+        const ms = d.by_month.map((m) => m.month);
+        setMonth((cur) => cur || (ms.length ? ms[ms.length - 1] : ""));
+      })
+      .catch(() => setAllData(null));
   }, [accountId]);
 
+  // Everything else on the page (KPIs, category donut) reflects the chosen month.
   useEffect(() => {
     const range = month ? monthRange(month) : {};
     getDashboard({ account_id: accountId, ...range })
       .then(setData)
       .catch((e) => setError((e as Error).message));
   }, [accountId, month]);
+
+  const months = allData?.by_month.map((m) => m.month) ?? [];
 
   const pieData = useMemo(
     () =>
@@ -159,7 +167,7 @@ export default function Overview() {
 
       <div className="grid gap-4 lg:grid-cols-5">
         <Card className="p-5 lg:col-span-2">
-          <CardHeader title="Spending by category" />
+          <CardHeader title="Spending by category" meta={month ? monthLabel(month) : "all time"} />
           <div className="relative" style={{ width: "100%", height: 220 }}>
             <ResponsiveContainer>
               <PieChart>
@@ -215,10 +223,10 @@ export default function Overview() {
         </Card>
 
         <Card className="p-5 lg:col-span-3">
-          <CardHeader title="Cash flow" meta="by month" />
+          <CardHeader title="Cash flow" meta="all months" />
           <div style={{ width: "100%", height: 300 }}>
             <ResponsiveContainer>
-              <AreaChart data={data?.by_month ?? []} margin={{ left: -18, right: 6, top: 6 }}>
+              <AreaChart data={allData?.by_month ?? []} margin={{ left: -18, right: 6, top: 6 }}>
                 <defs>
                   <linearGradient id="gIncome" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor={CHART.income} stopOpacity={0.32} />

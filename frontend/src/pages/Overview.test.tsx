@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, expect, test, vi } from "vitest";
 import * as accountsApi from "../api/accounts";
@@ -35,21 +35,25 @@ test("shows KPI totals and category legend", async () => {
   expect(screen.getByText("Uncategorized")).toBeInTheDocument();
 });
 
-test("category legend rows deep-link to filtered transactions", async () => {
+test("category legend rows deep-link to filtered transactions (carrying the month)", async () => {
   renderOverview();
-  const groceries = await screen.findByText("Groceries");
-  // a real category -> ?category_id=, the null bucket -> ?uncategorized=true
-  expect(groceries.closest("a")).toHaveAttribute("href", "/transactions?category_id=1");
-  expect(screen.getByText("Uncategorized").closest("a")).toHaveAttribute(
-    "href",
-    "/transactions?uncategorized=true",
+  // The page defaults to the latest month with data, so links carry that scope.
+  await waitFor(() =>
+    expect(screen.getByText("Groceries").closest("a")).toHaveAttribute(
+      "href",
+      "/transactions?category_id=1&start=2026-02-01&end=2026-02-28",
+    ),
+  );
+  // the null bucket -> ?uncategorized=true
+  expect(screen.getByText("Uncategorized").closest("a")?.getAttribute("href")).toContain(
+    "uncategorized=true",
   );
 });
 
-test("offers a month filter built from the available months", async () => {
+test("defaults to the latest month and offers an All-time option", async () => {
   renderOverview();
-  const monthFilter = await screen.findByLabelText("Month filter");
-  expect(monthFilter).toBeInTheDocument();
+  const monthFilter = (await screen.findByLabelText("Month filter")) as HTMLSelectElement;
   expect(screen.getByRole("option", { name: "All time" })).toBeInTheDocument();
   expect(screen.getByRole("option", { name: "February 2026" })).toBeInTheDocument();
+  await waitFor(() => expect(monthFilter.value).toBe("2026-02")); // newest month selected
 });
