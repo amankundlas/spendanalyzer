@@ -24,3 +24,29 @@ def run_migrations(engine: Engine) -> None:
                     "ADD COLUMN category_id INTEGER REFERENCES category(id)"
                 )
             )
+
+        # Retire the old seeded "Uncategorized" category: NULL category_id IS the
+        # uncategorized bucket, so a literal category by that name is redundant and
+        # produces a confusing second "Uncategorized" row. Reassign anything on it
+        # to NULL and remove it. Idempotent — a no-op once it's gone.
+        has_category = conn.execute(
+            text("SELECT name FROM sqlite_master WHERE type='table' AND name = 'category'")
+        ).first()
+        row = (
+            conn.execute(text("SELECT id FROM category WHERE name = 'Uncategorized'")).first()
+            if has_category
+            else None
+        )
+        if row is not None:
+            cat_id = row[0]
+            conn.execute(
+                text('UPDATE "transaction" SET category_id = NULL WHERE category_id = :id'),
+                {"id": cat_id},
+            )
+            for tbl in ("categoryrule", "budget"):
+                if conn.execute(
+                    text("SELECT name FROM sqlite_master WHERE type='table' AND name = :t"),
+                    {"t": tbl},
+                ).first():
+                    conn.execute(text(f"DELETE FROM {tbl} WHERE category_id = :id"), {"id": cat_id})
+            conn.execute(text("DELETE FROM category WHERE id = :id"), {"id": cat_id})
