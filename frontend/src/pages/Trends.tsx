@@ -96,7 +96,7 @@ export default function Trends() {
               <CartesianGrid stroke={CHART.grid} vertical={false} />
               <XAxis dataKey="month" tick={axisTick} axisLine={false} tickLine={false} />
               <YAxis tick={axisTick} axisLine={false} tickLine={false} width={52} />
-              <Tooltip formatter={(v: number) => formatMoney(v)} contentStyle={tooltipStyle} />
+              <Tooltip formatter={(v) => formatMoney(Number(v))} contentStyle={tooltipStyle} />
               <Area type="monotone" dataKey="spend" stroke={CHART.spend} strokeWidth={2.5} fill="url(#tSpend)" name="Spend" />
               <Area type="monotone" dataKey="income" stroke={CHART.income} strokeWidth={2.5} fill="url(#tIncome)" name="Income" />
             </AreaChart>

@@ -22,7 +22,6 @@ test("renders sidebar and the Overview heading on the home route", async () => {
   render(
     <MemoryRouter
       initialEntries={["/"]}
-      future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
     >
       <App />
     </MemoryRouter>,

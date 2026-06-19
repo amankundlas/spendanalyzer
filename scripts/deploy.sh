@@ -19,7 +19,8 @@ ssh "$REMOTE" "set -e
     echo 'ERROR: .env missing on minipc. Run ./scripts/bootstrap-minipc.sh first.' >&2
     exit 1
   fi
-  docker compose -f docker-compose.yml -f docker-compose.minipc.yml up -d --build
+  docker compose -f docker-compose.yml -f docker-compose.minipc.yml build --pull
+  docker compose -f docker-compose.yml -f docker-compose.minipc.yml up -d
   # The watched-folder bind mount (./import) is auto-created by Docker as root;
   # chown it (from inside the root api container) to the host user so files can
   # be dropped in from the host. Idempotent.

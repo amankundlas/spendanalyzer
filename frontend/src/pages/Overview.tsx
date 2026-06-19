@@ -180,8 +180,8 @@ export default function Overview() {
                   paddingAngle={2}
                   stroke="none"
                   style={{ cursor: "pointer" }}
-                  onClick={(slice: { category_id?: number | null }) =>
-                    navigate(txnHref(slice.category_id ?? null, accountId, month))
+                  onClick={(slice) =>
+                    navigate(txnHref((slice as { category_id?: number | null }).category_id ?? null, accountId, month))
                   }
                 >
                   {pieData.map((d, i) => (
@@ -189,7 +189,7 @@ export default function Overview() {
                   ))}
                 </Pie>
                 <Tooltip
-                  formatter={(v: number) => formatMoney(v)}
+                  formatter={(v) => formatMoney(Number(v))}
                   contentStyle={tooltipStyle}
                 />
               </PieChart>
@@ -244,7 +244,7 @@ export default function Overview() {
                   tickLine={false}
                 />
                 <YAxis tick={axisTick} axisLine={false} tickLine={false} width={52} />
-                <Tooltip formatter={(v: number) => formatMoney(v)} contentStyle={tooltipStyle} />
+                <Tooltip formatter={(v) => formatMoney(Number(v))} contentStyle={tooltipStyle} />
                 <Area
                   type="monotone"
                   dataKey="income"
