@@ -1,9 +1,11 @@
-fastapi==0.115.6
+fastapi==0.137.2
+starlette==1.3.1          # pinned: pulls the CVE-fixed Starlette FastAPI resolves to
 uvicorn[standard]==0.34.0
 pydantic-settings==2.7.1
 sqlmodel==0.0.22
 python-dateutil==2.9.0.post0
-python-multipart==0.0.20
+python-multipart==0.0.32
 httpx==0.28.1
-pdfplumber==0.11.4
+pdfplumber==0.11.10
+pdfminer.six==20260107    # pinned: CVE-fixed; pdfplumber would otherwise float it
 itsdangerous==2.2.0

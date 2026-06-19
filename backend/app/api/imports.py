@@ -31,6 +31,14 @@ _EXTRACT_FAIL_MSG = (
     "import a CSV export instead."
 )
 
+# Statements are small; cap uploads so a giant file can't exhaust memory.
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
+
+
+def _check_size(file: UploadFile) -> None:
+    if file.size is not None and file.size > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="file too large (max 10 MB)")
+
 
 class ImportBatchOut(BaseModel):
     """Wire schema for an import batch (decoupled from the ORM table model)."""
@@ -68,6 +76,7 @@ def _require_account(session: Session, account_id: int) -> Account:
 
 @router.post("/imports/analyze", response_model=DetectedColumns)
 async def analyze(file: UploadFile = File(...)) -> DetectedColumns:
+    _check_size(file)
     text = await _read_text(file)
     return detect_columns(text)
 
@@ -87,6 +96,7 @@ async def commit(
     Pydantic models returned directly so FastAPI handles JSON serialization.
     """
     _require_account(session, account_id)
+    _check_size(file)
     text = await _read_text(file)
     parsed_mapping = _parse_mapping(mapping)
     try:
@@ -180,6 +190,7 @@ async def pdf_extract(
     minutes on CPU) is only a fallback. Either way the client polls
     /imports/pdf/jobs/{job_id} so a slow run never blocks a mobile request.
     """
+    _check_size(file)
     raw = await file.read()
     try:
         text = extract_text(raw)

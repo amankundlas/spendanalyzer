@@ -50,3 +50,16 @@ def test_commit_dry_run_then_save_then_list_then_delete(client: TestClient):
     assert client.delete(f"/api/imports/{batch_id}").status_code == 204
     assert client.get(f"/api/imports?account_id={acct}").json() == []
     assert client.get(f"/api/transactions?account_id={acct}").json()["items"] == []
+
+
+def test_oversized_upload_is_rejected(client: TestClient, monkeypatch):
+    """Uploads above the size cap return 413 instead of being read into memory."""
+    import app.api.imports as imports_api
+
+    monkeypatch.setattr(imports_api, "MAX_UPLOAD_BYTES", 8)  # tiny cap for the test
+    resp = client.post(
+        "/api/imports/analyze",
+        files={"file": ("big.csv", io.BytesIO(b"x" * 64), "text/csv")},
+    )
+    assert resp.status_code == 413
+    assert "too large" in resp.json()["detail"]
